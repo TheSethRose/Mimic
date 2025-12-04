@@ -381,7 +381,7 @@ def _skill_to_loose_task(skill: dict[str, Any], mask_passwords: bool = True) -> 
 
     Args:
         skill: The skill dictionary.
-        mask_passwords: If True, mask password values.
+        mask_passwords: If True, mask password values in the output.
 
     Returns:
         Intent-based task string.
@@ -389,10 +389,15 @@ def _skill_to_loose_task(skill: dict[str, Any], mask_passwords: bool = True) -> 
     title = skill.get("title", "Task")
     description = skill.get("description", "")
     steps = skill.get("steps", [])
+    
+    # Get skill-defined config
+    instructions = skill.get("instructions", [])
+    final_url = skill.get("final_url", "")
 
     # Extract key information from steps
     urls = []
     actions = []
+    credentials = []
 
     for step in steps:
         step_type = step.get("type")
@@ -411,12 +416,26 @@ def _skill_to_loose_task(skill: dict[str, Any], mask_passwords: bool = True) -> 
         elif step_type == "change":
             selectors = step.get("selectors", [])
             desc = get_selector_description(selectors)
+            value = step.get("value", "")
+            
             is_password = "password" in str(selectors).lower()
-            if desc:
+            is_email = any(
+                kw in str(selectors).lower()
+                for kw in ["email", "ap_email"]
+            )
+            
+            if desc and value:
                 if is_password:
+                    # Always use actual password for agent, mask only affects display
+                    display_value = "********" if mask_passwords else value
                     actions.append(f"enter password in {desc}")
+                    credentials.append(f"  Password for {desc}: {display_value}")
+                elif is_email:
+                    actions.append(f"fill in {desc}")
+                    credentials.append(f"  Email for {desc}: {value}")
                 else:
                     actions.append(f"fill in {desc}")
+                    credentials.append(f"  Value for {desc}: {value}")
 
     # Build the loose task
     lines = [
@@ -431,20 +450,39 @@ def _skill_to_loose_task(skill: dict[str, Any], mask_passwords: bool = True) -> 
     lines.append("Complete this task using your best judgment. Here's what needs to happen:")
     lines.append("")
 
+    # Start URL
     if urls:
         lines.append(f"- Start at: {urls[0]}")
 
+    # Final destination - use explicit final_url if provided, else last navigate URL
+    destination = final_url or (urls[-1] if len(urls) > 1 else "")
+    if destination and destination != urls[0]:
+        lines.append(f"- FINAL DESTINATION: {destination}")
+
+    # Include credentials if present
+    if credentials:
+        lines.append("")
+        lines.append("- Use these credentials:")
+        lines.extend(credentials)
+
     # Summarize the intent
     if actions:
+        lines.append("")
         lines.append(f"- Key actions: {', '.join(actions[:5])}")
         if len(actions) > 5:
             lines.append(f"  (and {len(actions) - 5} more steps)")
+
+    # Include skill-defined instructions
+    if instructions:
+        lines.append("")
+        lines.append("INSTRUCTIONS:")
+        for i, instruction in enumerate(instructions, 1):
+            lines.append(f"{i}. {instruction}")
 
     lines.extend([
         "",
         "Use the page content and your reasoning to complete the goal.",
         "The exact selectors may have changed - adapt as needed.",
-        "If you encounter login screens, fill in the appropriate credentials.",
     ])
 
     return "\n".join(lines)

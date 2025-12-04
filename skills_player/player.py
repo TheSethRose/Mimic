@@ -1,5 +1,6 @@
 """Main skill player orchestration."""
 
+import logging
 import os
 from typing import Any, TYPE_CHECKING
 
@@ -13,6 +14,29 @@ from .skills import (
 
 if TYPE_CHECKING:
     from browser_use import Agent, Browser
+
+
+def configure_logging(verbose: bool = False) -> None:
+    """
+    Configure logging to reduce noise from browser-use.
+    
+    By default, suppresses step-by-step logging and only shows
+    important events like goals, user input requests, and results.
+    
+    Args:
+        verbose: If True, show all browser-use logging.
+    """
+    if verbose:
+        return  # Don't modify logging in verbose mode
+    
+    # Reduce browser-use agent logging - only show warnings and above
+    logging.getLogger("browser_use.agent").setLevel(logging.WARNING)
+    
+    # Keep tools logging at INFO for action feedback
+    logging.getLogger("browser_use.tools").setLevel(logging.INFO)
+    
+    # Reduce browser session noise
+    logging.getLogger("browser_use.browser").setLevel(logging.WARNING)
 
 
 def get_llm():
@@ -102,6 +126,7 @@ async def play_skill(
     extract_prompt: str | None = None,
     interactive: bool = True,
     loose_mode: bool = False,
+    verbose: bool = False,
 ) -> dict[str, Any]:
     """
     Play a browser automation skill using browser-use.
@@ -113,10 +138,14 @@ async def play_skill(
         extract_prompt: Custom extraction prompt (overrides built-in).
         interactive: Enable interactive mode for MFA/user input prompts.
         loose_mode: Enable loose/adaptive mode - agent reasons more freely.
+        verbose: Show detailed step-by-step logging from browser-use.
 
     Returns:
         Dict with success status, result, errors, and steps completed.
     """
+    # Configure logging before any browser-use imports
+    configure_logging(verbose=verbose)
+    
     skill = load_skill(skill_path)
     title = skill.get("title", "Skill")
 
@@ -143,12 +172,11 @@ async def play_skill(
         print(f"❌ {e}")
         return {"success": False, "error": str(e)}
 
-    # Convert to task
-    # Note: We use mask_passwords=True even for execution to avoid sending
-    # plaintext credentials to the LLM API. The agent will use the input
-    # tool to handle sensitive fields.
-    task = skill_to_task(skill, mask_passwords=True, loose_mode=loose_mode)
-    task_display = task  # Same now since we always mask
+    # Convert to task - generate two versions:
+    # 1. task: unmasked (actual credentials for the agent to use)
+    # 2. task_display: masked (safe to show in logs)
+    task = skill_to_task(skill, mask_passwords=False, loose_mode=loose_mode)
+    task_display = skill_to_task(skill, mask_passwords=True, loose_mode=loose_mode)
 
     # Determine extraction prompt
     if extract_prompt is not None:
@@ -182,7 +210,17 @@ async def play_skill(
 
     # Initialize
     llm = get_llm()
-    browser = Browser(headless=headless)
+    
+    # Disable WebAuthn (Passkeys) and Password Manager popups that can block automation
+    browser = Browser(
+        headless=headless,
+        extra_chromium_args=[
+            "--disable-features=WebAuthentication",
+            "--disable-features=WebAuthn",
+            "--disable-password-manager-reauthentication",
+            "--disable-save-password-bubble",
+        ]
+    )
 
     # Create tools with interactive capabilities
     tools = create_interactive_tools() if interactive else None

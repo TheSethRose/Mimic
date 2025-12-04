@@ -1,0 +1,2 @@
+# This file ensures the private/ directory exists in git
+# All skill files in this directory are gitignored

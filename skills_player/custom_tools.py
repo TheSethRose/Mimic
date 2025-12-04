@@ -6,8 +6,11 @@ and can be optionally loaded. Keep the core tools.py clean and generic.
 """
 
 import csv
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from .automation_suite import FileOrganizer, Ledger, SecuritySuite
 
 if TYPE_CHECKING:
     from browser_use import ActionResult, Tools
@@ -173,6 +176,138 @@ def register_finance_tools(tools: "Tools") -> None:
 
         return ActionResult(
             extracted_content=summary,
+            include_in_memory=True
+        )
+
+    # Initialize shared instances for file organization and ledger
+    _organizer = FileOrganizer()
+    _ledger = Ledger()
+
+    @tools.action(
+        description="""Organize a downloaded file (PDF, statement, etc.) into a
+        structured folder hierarchy. Automatically categorizes by service type
+        (Utilities, Financial, Retail, Healthcare) and renames using pattern:
+        YYYY-MM-DD_ServiceName_$Amount.ext"""
+    )
+    def organize_file(
+        source_path: str,
+        service_name: str,
+        amount: str = "0.00",
+        date: str = "",
+        category: str = "",
+    ) -> ActionResult:
+        """
+        Organize and rename a downloaded file.
+
+        Args:
+            source_path: Path to the downloaded file.
+            service_name: Name of the service/vendor.
+            amount: Dollar amount (optional).
+            date: Date string YYYY-MM-DD (optional, defaults to today).
+            category: Override auto-detection (optional).
+
+        Returns:
+            ActionResult with new file path or error.
+        """
+        metadata = {
+            "service_name": service_name,
+            "amount": amount,
+        }
+        if date:
+            metadata["date"] = date
+        if category:
+            metadata["category"] = category
+
+        result = _organizer.organize(source_path, metadata)
+
+        if result.startswith("Error"):
+            return ActionResult(error=result, include_in_memory=True)
+
+        return ActionResult(
+            extracted_content=result,
+            include_in_memory=True
+        )
+
+    @tools.action(
+        description="""Log a financial entry to the ledger for tracking.
+        Use after extracting bill amounts, transaction data, or payment info.
+        Creates a running record in CSV format for analysis."""
+    )
+    def log_to_ledger(
+        service_name: str,
+        amount: str,
+        date: str = "",
+        due_date: str = "",
+        category: str = "Expense",
+        notes: str = "",
+    ) -> ActionResult:
+        """
+        Add an entry to the financial ledger.
+
+        Args:
+            service_name: Name of the service/vendor.
+            amount: Dollar amount.
+            date: Transaction date (defaults to today).
+            due_date: Payment due date (optional).
+            category: Expense, Income, Bill, Retail, etc.
+            notes: Additional notes.
+
+        Returns:
+            ActionResult confirming entry was logged.
+        """
+        entry = {
+            "service_name": service_name,
+            "amount": amount,
+            "category": category,
+            "notes": notes,
+        }
+        if date:
+            entry["date"] = date
+        if due_date:
+            entry["due_date"] = due_date
+
+        result = _ledger.add_entry(entry)
+
+        return ActionResult(
+            extracted_content=result,
+            include_in_memory=True
+        )
+
+    @tools.action(
+        description="""Generate a TOTP (Time-based One-Time Password) code for
+        2FA authentication. Requires the TOTP secret key (base32 encoded) which
+        is typically provided during initial 2FA setup."""
+    )
+    def generate_otp(
+        secret_env_var: str,
+    ) -> ActionResult:
+        """
+        Generate a 6-digit OTP code from a TOTP secret.
+
+        Args:
+            secret_env_var: Name of environment variable containing the
+                           TOTP secret (e.g., "AMAZON_OTP_SECRET").
+
+        Returns:
+            ActionResult with 6-digit OTP code or error.
+        """
+        secret = os.getenv(secret_env_var)
+
+        if not secret:
+            return ActionResult(
+                error=f"Environment variable {secret_env_var} not set",
+                include_in_memory=True
+            )
+
+        code = SecuritySuite.generate_otp(secret)
+
+        if code.startswith("Error"):
+            return ActionResult(error=code, include_in_memory=True)
+
+        remaining = SecuritySuite.get_otp_remaining_seconds()
+
+        return ActionResult(
+            extracted_content=f"OTP Code: {code} (expires in {remaining}s)",
             include_in_memory=True
         )
 

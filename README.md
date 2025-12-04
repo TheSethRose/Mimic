@@ -184,9 +184,9 @@ mimic/
 │   ├── custom_tools.py     # Domain-specific tools
 │   └── preferences.py      # User preference storage
 └── skills/                 # Your skill recordings
-    ├── README.md
-    └── bills/
-        └── example.json
+    ├── public/             # Shareable example skills
+    ├── private/            # Personal skills (gitignored)
+    └── README.md
 ```
 
 ## Environment Variables

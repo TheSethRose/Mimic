@@ -1,11 +1,14 @@
 """Interactive tools for agent-user communication."""
 
+import json
+import re
 from typing import TYPE_CHECKING
 
 from .preferences import load_preferences, normalize_prompt_key, save_preferences
 
 if TYPE_CHECKING:
     from browser_use import ActionResult, Tools
+    from browser_use.browser.session import BrowserSession
 
 
 def create_interactive_tools(include_finance: bool = True) -> "Tools":
@@ -22,8 +25,151 @@ def create_interactive_tools(include_finance: bool = True) -> "Tools":
     """
     # Import here to avoid circular imports and allow type checking
     from browser_use import ActionResult, Tools
+    from browser_use.browser.session import BrowserSession
 
     tools = Tools()
+
+    @tools.action(
+        description="""Parse JSON data from the current page. Use this when the
+        page displays raw JSON (like an API response). Optionally filter the
+        results using a simple condition.
+
+        Examples:
+        - parse_page_json() - returns all JSON data
+        - parse_page_json(array_key="items") - extracts the "items" array
+        - parse_page_json(array_key="items", filter_key="completed", filter_value=False)
+          - extracts items where completed=false
+        - parse_page_json(array_key="listItems", filter_key="completed", filter_value=False, extract_fields=["value"])
+          - extracts just the "value" field from non-completed items"""
+    )
+    async def parse_page_json(
+        browser_session: BrowserSession,
+        array_key: str = "",
+        filter_key: str = "",
+        filter_value: str | bool | None = None,
+        extract_fields: list[str] | None = None,
+    ) -> ActionResult:
+        """
+        Parse JSON from the current page content.
+
+        Args:
+            browser_session: Browser session (injected automatically)
+            array_key: Key to extract an array from (e.g., "items", "listItems")
+            filter_key: Field to filter on (e.g., "completed", "status")
+            filter_value: Value to match for filter (e.g., False, "active")
+            extract_fields: List of fields to extract from each item
+
+        Returns:
+            ActionResult with parsed JSON data.
+        """
+        try:
+            # Get the page and use JavaScript to get the body text
+            page = await browser_session.get_current_page()
+            if not page:
+                return ActionResult(
+                    error="No page available",
+                    include_in_memory=True
+                )
+
+            # Get page content via JavaScript - works for raw JSON pages
+            # browser-use requires arrow function format for evaluate()
+            content = await page.evaluate("() => document.body.innerText || document.body.textContent || ''")
+
+            if not content or not content.strip():
+                # Try getting the full HTML if innerText is empty
+                content = await page.evaluate("() => document.documentElement.outerHTML || ''")
+
+            json_text = content.strip()
+
+            # Clean up HTML entities
+            json_text = json_text.replace('&quot;', '"')
+            json_text = json_text.replace('&amp;', '&')
+            json_text = json_text.replace('&lt;', '<')
+            json_text = json_text.replace('&gt;', '>')
+            json_text = json_text.strip()
+
+            # Parse the JSON
+            data = json.loads(json_text)
+
+            # Extract array if specified - search recursively if not at root
+            if array_key:
+                found_data = None
+                
+                # First check root level
+                if isinstance(data, dict) and array_key in data:
+                    found_data = data[array_key]
+                else:
+                    # Search one level deep (common pattern: {"dynamicKey": {"listItems": [...]}})
+                    if isinstance(data, dict):
+                        for key, value in data.items():
+                            if isinstance(value, dict) and array_key in value:
+                                found_data = value[array_key]
+                                break
+                
+                if found_data is not None:
+                    data = found_data
+                else:
+                    return ActionResult(
+                        error=f"Key '{array_key}' not found in JSON (checked root and one level deep)",
+                        include_in_memory=True
+                    )
+
+            # Filter if specified
+            if filter_key and isinstance(data, list):
+                filtered = []
+                for item in data:
+                    if isinstance(item, dict):
+                        item_value = item.get(filter_key)
+                        # Handle boolean comparison
+                        if filter_value is False:
+                            if item_value is False or item_value is None:
+                                filtered.append(item)
+                        elif filter_value is True:
+                            if item_value is True:
+                                filtered.append(item)
+                        elif item_value == filter_value:
+                            filtered.append(item)
+                data = filtered
+
+            # Extract specific fields if specified
+            if extract_fields and isinstance(data, list):
+                extracted = []
+                for item in data:
+                    if isinstance(item, dict):
+                        if len(extract_fields) == 1:
+                            # Single field - just get the value
+                            val = item.get(extract_fields[0])
+                            if val is not None:
+                                extracted.append(val)
+                        else:
+                            # Multiple fields - create a dict
+                            extracted.append({
+                                field: item.get(field)
+                                for field in extract_fields
+                                if field in item
+                            })
+                data = extracted
+
+            result_json = json.dumps(data, indent=2)
+            item_count = len(data) if isinstance(data, list) else 1
+
+            print(f"\n📋 Parsed JSON: {item_count} items")
+
+            return ActionResult(
+                extracted_content=result_json,
+                include_in_memory=True
+            )
+
+        except json.JSONDecodeError as e:
+            return ActionResult(
+                error=f"Failed to parse JSON: {e}",
+                include_in_memory=True
+            )
+        except Exception as e:
+            return ActionResult(
+                error=f"Error parsing page: {e}",
+                include_in_memory=True
+            )
 
     @tools.action(
         description="""Ask the user for input or guidance when you encounter

@@ -77,6 +77,11 @@ Creating skills:
         action="store_true",
         help="Enable loose mode: agent adapts to page changes instead of following steps strictly"
     )
+    play_parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Show detailed step-by-step logging from browser-use"
+    )
 
     args = parser.parse_args()
 
@@ -125,6 +130,7 @@ def _handle_play(args: argparse.Namespace) -> None:
             extract_prompt=args.extract_prompt,
             interactive=not args.no_interactive,
             loose_mode=args.loose,
+            verbose=args.verbose,
         ))
         sys.exit(0 if result.get("success") else 1)
 
