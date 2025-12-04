@@ -1,269 +1,251 @@
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/2ccdb752-22fb-41c7-8948-857fc1ad7e24"">
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/774a46d5-27a0-490c-b7d0-e65fcbbfa358">
-  <img alt="Shows a black Browser Use Logo in light color mode and a white one in dark color mode." src="https://github.com/user-attachments/assets/2ccdb752-22fb-41c7-8948-857fc1ad7e24"  width="full">
-</picture>
+# Mimic
 
-<div align="center">
-    <picture>
-    <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/9955dda9-ede3-4971-8ee0-91cbc3850125"">
-    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/6797d09b-8ac3-4cb9-ba07-b289e080765a">
-    <img alt="The AI browser agent." src="https://github.com/user-attachments/assets/9955dda9-ede3-4971-8ee0-91cbc3850125"  width="400">
-    </picture>
-</div>
+**Browser Automation with Muscle Memory.**
 
-<div align="center">
-<a href="https://cloud.browser-use.com"><img src="https://media.browser-use.tools/badges/package" height="48" alt="Browser-Use Package Download Statistics"></a>
-</div>
+Turn Chrome Recordings into Unbreakable AI Agents.
 
 ---
 
-<div align="center">
-<a href="#demos"><img src="https://media.browser-use.tools/badges/demos" alt="Demos"></a>
-<img width="16" height="1" alt="">
-<a href="https://docs.browser-use.com"><img src="https://media.browser-use.tools/badges/docs" alt="Docs"></a>
-<img width="16" height="1" alt="">
-<a href="https://browser-use.com/posts"><img src="https://media.browser-use.tools/badges/blog" alt="Blog"></a>
-<img width="16" height="1" alt="">
-<a href="https://browsermerch.com"><img src="https://media.browser-use.tools/badges/merch" alt="Merch"></a>
-<img width="100" height="1" alt="">
-<a href="https://github.com/browser-use/browser-use"><img src="https://media.browser-use.tools/badges/github" alt="Github Stars"></a>
-<img width="4" height="1" alt="">
-<a href="https://x.com/intent/user?screen_name=browser_use"><img src="https://media.browser-use.tools/badges/twitter" alt="Twitter"></a>
-<img width="4 height="1" alt="">
-<a href="https://link.browser-use.com/discord"><img src="https://media.browser-use.tools/badges/discord" alt="Discord"></a>
-<img width="4" height="1" alt="">
-<a href="https://cloud.browser-use.com"><img src="https://media.browser-use.tools/badges/cloud" height="48" alt="Browser-Use Cloud"></a>
-</div>
+Standard automation breaks the moment a website changes. Mimic uses your Chrome DevTools recordings as a flexible guide, not a rigid script. It combines the speed of recording with the intelligence of an AI agent—adapting to layout shifts, healing broken selectors, and handling MFA challenges in real-time.
 
-</br>
+**Record once. Run forever.**
 
-🌤️ Want to skip the setup? Use our <b>[cloud](https://cloud.browser-use.com)</b> for faster, scalable, stealth-enabled browser automation!
+## Features
 
-# 🤖 LLM Quickstart
+- 🎬 **Chrome Recorder Integration** — Export recordings from Chrome DevTools, run them with AI
+- 🧠 **Self-Healing Selectors** — Adapts when elements move or IDs change
+- 🔐 **MFA & CAPTCHA Handling** — Interactive prompts for verification challenges
+- 🔓 **Loose Mode** — Let the agent reason freely instead of following steps rigidly
+- 💾 **Preference Memory** — Remembers your MFA choices (SMS vs Email)
+- 📊 **Data Extraction** — Extract structured data after navigation
+- 🔒 **Secure Credentials** — Environment variable substitution for sensitive data
 
-1. Direct your favorite coding agent (Cursor, Claude Code, etc) to [Agents.md](https://docs.browser-use.com/llms-full.txt)
-2. Prompt away!
+## Quick Start
 
-<br/>
+### 1. Install Dependencies
 
-# 👋 Human Quickstart
-
-**1. Create environment with [uv](https://docs.astral.sh/uv/) (Python>=3.11):**
 ```bash
-uv init
-```
-
-**2. Install Browser-Use package:**
-```bash
-#  We ship every day - use the latest version!
-uv add browser-use
+# Using uv (recommended)
 uv sync
+
+# Or pip
+pip install -r requirements.txt
 ```
 
-**3. Get your API key from [Browser Use Cloud](https://cloud.browser-use.com/new-api-key) and add it to your `.env` file (new signups get $10 free credits):**
-```
-# .env
-BROWSER_USE_API_KEY=your-key
-```
-
-**4. Install Chromium browser:**
-```bash
-uvx browser-use install
-```
-
-**5. Run your first agent:**
-```python
-from browser_use import Agent, Browser, ChatBrowserUse
-import asyncio
-
-async def example():
-    browser = Browser(
-        # use_cloud=True,  # Uncomment to use a stealth browser on Browser Use Cloud
-    )
-
-    llm = ChatBrowserUse()
-
-    agent = Agent(
-        task="Find the number of stars of the browser-use repo",
-        llm=llm,
-        browser=browser,
-    )
-
-    history = await agent.run()
-    return history
-
-if __name__ == "__main__":
-    history = asyncio.run(example())
-```
-
-Check out the [library docs](https://docs.browser-use.com) and the [cloud docs](https://docs.cloud.browser-use.com) for more!
-
-<br/>
-
-# 🔥 Deploy on Sandboxes
-
-We handle agents, browsers, persistence, auth, cookies, and LLMs. The agent runs right next to the browser for minimal latency.
-
-```python
-from browser_use import Browser, sandbox, ChatBrowserUse
-from browser_use.agent.service import Agent
-import asyncio
-
-@sandbox()
-async def my_task(browser: Browser):
-    agent = Agent(task="Find the top HN post", browser=browser, llm=ChatBrowserUse())
-    await agent.run()
-
-# Just call it like any async function
-asyncio.run(my_task())
-```
-
-See [Going to Production](https://docs.browser-use.com/production) for more details.
-
-<br/>
-
-# 🚀 Template Quickstart
-
-**Want to get started even faster?** Generate a ready-to-run template:
+### 2. Configure Environment
 
 ```bash
-uvx browser-use init --template default
+cp .env.example .env
 ```
 
-This creates a `browser_use_default.py` file with a working example. Available templates:
-- `default` - Minimal setup to get started quickly
-- `advanced` - All configuration options with detailed comments
-- `tools` - Examples of custom tools and extending the agent
+Edit `.env` with your API keys:
 
-You can also specify a custom output path:
+```env
+# Required: Choose one LLM provider
+OPENROUTER_API_KEY=your_key_here
+
+# Optional: Configure provider/model
+LLM_PROVIDER=openrouter          # openrouter, openai, anthropic
+LLM_MODEL=google/gemini-2.5-flash
+
+# Your skill credentials (example)
+BANK_USERNAME=your_username
+BANK_PASSWORD=your_password
+```
+
+### 3. Create a Skill
+
+1. Open Chrome DevTools (`F12`)
+2. Click `⋮` → **More tools** → **Recorder**
+3. Click **Create a new recording**
+4. Perform your actions in the browser
+5. Click **End recording**
+6. Export as **JSON**
+7. Save to `skills/` folder
+
+### 4. Run It
+
 ```bash
-uvx browser-use init --template default --output my_agent.py
+# List available skills
+python main.py list
+
+# Play a skill
+python main.py play skills/login.json
+
+# Play with loose mode (adaptive)
+python main.py play skills/login.json --loose
+
+# Extract data after navigation
+python main.py play skills/dashboard.json --extract
 ```
 
-<br/>
+## Usage
 
-# Demos
+```
+python main.py <command> [options]
 
+Commands:
+  list                     List all available skills
+  play <skill>             Play a skill file
 
-### 📋 Form-Filling
-#### Task = "Fill in this job application with my resume and information."
-![Job Application Demo](https://github.com/user-attachments/assets/57865ee6-6004-49d5-b2c2-6dff39ec2ba9)
-[Example code ↗](https://github.com/browser-use/browser-use/blob/main/examples/use-cases/apply_to_job.py)
-
-
-### 🍎 Grocery-Shopping
-#### Task = "Put this list of items into my instacart."
-
-https://github.com/user-attachments/assets/a6813fa7-4a7c-40a6-b4aa-382bf88b1850
-
-[Example code ↗](https://github.com/browser-use/browser-use/blob/main/examples/use-cases/buy_groceries.py)
-
-
-### 💻 Personal-Assistant.
-#### Task = "Help me find parts for a custom PC."
-
-https://github.com/user-attachments/assets/ac34f75c-057a-43ef-ad06-5b2c9d42bf06
-
-[Example code ↗](https://github.com/browser-use/browser-use/blob/main/examples/use-cases/pcpartpicker.py)
-
-
-### 💡See [more examples here ↗](https://docs.browser-use.com/examples) and give us a star!
-
-<br/>
-
-## Integrations, hosting, custom tools, MCP, and more on our [Docs ↗](https://docs.browser-use.com)
-
-<br/>
-
-# FAQ
-
-<details>
-<summary><b>What's the best model to use?</b></summary>
-
-We optimized **ChatBrowserUse()** specifically for browser automation tasks. On avg it completes tasks 3-5x faster than other models with SOTA accuracy.
-
-**Pricing (per 1M tokens):**
-- Input tokens: $0.20
-- Cached input tokens: $0.02
-- Output tokens: $2.00
-
-For other LLM providers, see our [supported models documentation](https://docs.browser-use.com/supported-models).
-</details>
-
-
-<details>
-<summary><b>Can I use custom tools with the agent?</b></summary>
-
-Yes! You can add custom tools to extend the agent's capabilities:
-
-```python
-from browser_use import Tools
-
-tools = Tools()
-
-@tools.action(description='Description of what this tool does.')
-def custom_tool(param: str) -> str:
-    return f"Result: {param}"
-
-agent = Agent(
-    task="Your task",
-    llm=llm,
-    browser=browser,
-    tools=tools,
-)
+Options for 'play':
+  --extract, -x            Use the skill's built-in extraction prompt
+  --extract-prompt, -p     Custom extraction prompt
+  --headless               Run browser without UI
+  --no-interactive         Disable MFA/user input prompts
+  --loose, -l              Adaptive mode: agent reasons freely
 ```
 
-</details>
+## Skill Format
 
-<details>
-<summary><b>Can I use this for free?</b></summary>
+Skills are Chrome DevTools Recorder JSON exports with optional extensions:
 
-Yes! Browser-Use is open source and free to use. You only need to choose an LLM provider (like OpenAI, Google, ChatBrowserUse, or run local models with Ollama).
-</details>
+```json
+{
+  "title": "Login to Dashboard",
+  "description": "Authenticates and navigates to main dashboard",
+  "steps": [...],
+  
+  "env_vars": {
+    "SITE_USERNAME": "Your login email",
+    "SITE_PASSWORD": "Your login password"
+  },
+  "extract_prompt": "Get the account balance and last login date",
+  "may_require_mfa": true
+}
+```
 
-<details>
-<summary><b>How do I handle authentication?</b></summary>
+### Credential Substitution
 
-Check out our authentication examples:
-- [Using real browser profiles](https://github.com/browser-use/browser-use/blob/main/examples/browser/real_browser.py) - Reuse your existing Chrome profile with saved logins
-- If you want to use temporary accounts with inbox, choose AgentMail
-- To sync your auth profile with the remote browser, run `curl -fsSL https://browser-use.com/profile.sh | BROWSER_USE_API_KEY=XXXX sh` (replace XXXX with your API key)
+Replace sensitive values with `{{ENV_VAR}}` placeholders:
 
-These examples show how to maintain sessions and handle authentication seamlessly.
-</details>
+```json
+{
+  "type": "change",
+  "value": "{{SITE_USERNAME}}",
+  "selectors": [["#email"]]
+}
+```
 
-<details>
-<summary><b>How do I solve CAPTCHAs?</b></summary>
+Then add to your `.env`:
 
-For CAPTCHA handling, you need better browser fingerprinting and proxies. Use [Browser Use Cloud](https://cloud.browser-use.com) which provides stealth browsers designed to avoid detection and CAPTCHA challenges.
-</details>
+```env
+SITE_USERNAME=user@example.com
+```
 
-<details>
-<summary><b>How do I go into production?</b></summary>
+## Execution Modes
 
-Chrome can consume a lot of memory, and running many agents in parallel can be tricky to manage.
+### Strict Mode (Default)
 
-For production use cases, use our [Browser Use Cloud API](https://cloud.browser-use.com) which handles:
-- Scalable browser infrastructure
-- Memory management
-- Proxy rotation
-- Stealth browser fingerprinting
-- High-performance parallel execution
-</details>
+Follows the recorded steps precisely. Best for stable workflows.
 
-<br/>
+```bash
+python main.py play skills/checkout.json
+```
 
-<div align="center">
+### Loose Mode
 
-**Tell your computer what to do, and it gets it done.**
+Provides the goal and hints to the agent, letting it adapt to page changes. Best for sites that update frequently.
 
-<img src="https://github.com/user-attachments/assets/06fa3078-8461-4560-b434-445510c1766f" width="400"/>
+```bash
+python main.py play skills/checkout.json --loose
+```
 
-[![Twitter Follow](https://img.shields.io/twitter/follow/Magnus?style=social)](https://x.com/intent/user?screen_name=mamagnus00)
-&emsp;&emsp;&emsp;
-[![Twitter Follow](https://img.shields.io/twitter/follow/Gregor?style=social)](https://x.com/intent/user?screen_name=gregpr07)
+## MFA Handling
 
-</div>
+When Mimic encounters verification pages, it will prompt you interactively:
 
-<div align="center"> Made with ❤️ in Zurich and San Francisco </div>
+```
+============================================================
+🔐 USER INPUT REQUIRED
+============================================================
+
+📄 What I see on the page:
+   A verification code input field. Text says "Enter the 6-digit code sent to your phone"
+
+❓ Please provide the verification code
+
+👤 Your response: _
+```
+
+Mimic remembers your preferences (like choosing SMS over Email) for future runs.
+
+## Project Structure
+
+```
+mimic/
+├── main.py                 # CLI entry point
+├── skills_player/          # Core package
+│   ├── cli.py              # Command-line interface
+│   ├── config.py           # Configuration & constants
+│   ├── player.py           # Main orchestration
+│   ├── skills.py           # Skill loading & conversion
+│   ├── tools.py            # Interactive agent tools
+│   ├── custom_tools.py     # Domain-specific tools
+│   └── preferences.py      # User preference storage
+└── skills/                 # Your skill recordings
+    ├── README.md
+    └── bills/
+        └── example.json
+```
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LLM_PROVIDER` | LLM provider: `openrouter`, `openai`, `anthropic` | `openrouter` |
+| `LLM_MODEL` | Model name | `google/gemini-2.5-flash` |
+| `OPENROUTER_API_KEY` | OpenRouter API key | — |
+| `OPENAI_API_KEY` | OpenAI API key (if using openai provider) | — |
+| `ANTHROPIC_API_KEY` | Anthropic API key (if using anthropic provider) | — |
+
+## How It Works
+
+1. **Record** — Chrome DevTools Recorder captures your browser actions as JSON
+2. **Translate** — Mimic converts rigid selectors into natural language instructions
+3. **Execute** — An AI agent interprets the instructions, adapting to the live page
+4. **Heal** — When elements change, the agent finds them by context, not just selectors
+5. **Interact** — MFA challenges trigger interactive prompts; preferences are saved
+
+## Examples
+
+### Bank Statement Download
+
+```bash
+# Record logging into your bank and navigating to statements
+# Save as skills/bank-statements.json
+# Add credentials to .env
+
+python main.py play skills/bank-statements.json \
+  --extract-prompt "Download the most recent statement PDF"
+```
+
+### Price Monitoring
+
+```bash
+python main.py play skills/check-price.json \
+  --loose \
+  --extract-prompt "What is the current price?"
+```
+
+### Form Automation
+
+```bash
+python main.py play skills/submit-form.json --headless
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run linting: `uv run ruff check --fix && uv run ruff format`
+5. Submit a pull request
+
+## License
+
+MIT
+
+---
+
+**Mimic** — Record once. Run forever.

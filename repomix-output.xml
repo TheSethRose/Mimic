@@ -1,0 +1,1779 @@
+<repomix><file_summary>This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+The content has been processed where empty lines have been removed, line numbers have been added, content has been formatted for parsing in xml style.<purpose>This file contains a packed representation of the entire repository&apos;s contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.</purpose><file_format>The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Repository files, each consisting of:
+  - File path as an attribute
+  - Full contents of the file</file_format><usage_guidelines>- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.</usage_guidelines><notes>- Some files may have been excluded based on .gitignore rules and Repomix&apos;s configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Empty lines have been removed from all files
+- Line numbers have been added to the beginning of each line
+- Content has been formatted for parsing in xml style
+- Files are sorted by Git change count (files with more changes are at the bottom)</notes></file_summary><directory_structure>.github/
+  copilot-instructions.md
+skills/
+  README.md
+skills_player/
+  __init__.py
+  __main__.py
+  cli.py
+  config.py
+  custom_tools.py
+  player.py
+  preferences.py
+  skills.py
+  tools.py
+.gitignore
+CLAUDE.md
+main.py</directory_structure><files>This section contains the contents of the repository&apos;s files.<file path=".github/copilot-instructions.md">  1: # GitHub Copilot Instructions for Browser-Use
+  2: 
+  3: Browser-Use is an AI agent framework. It interacts with websites using Chromium via the Chrome DevTools Protocol (CDP). It translates high-level tasks into LLM-driven browser interactions.
+  4: 
+  5: ## Core Architecture
+  6: 
+  7: ### Major Components
+  8: 
+  9: - Agent (`browser_use/agent/service.py`): Orchestrates user tasks and executes the LLM-driven action loop. The entry point is `async def run()` which returns `AgentHistoryList`.
+ 10: - BrowserSession (`browser_use/browser/session.py`): Manages CDP connections, browser lifecycle, and coordinates watchdogs via an event bus. It provides the Actor API for deterministic browser control.
+ 11: - Tools (`browser_use/tools/service.py`): A registry mapping LLM decisions to browser operations. Built-in tools include `click`, `input`, `scroll`, `search`, `navigate`, `extract`, `screenshot`, `send_keys`, `wait`, `done`. Tools return `ActionResult` with structured output for agent reasoning.
+ 12: - DomService (`browser_use/dom/service.py`): Extracts and processes DOM content. It generates accessibility trees, highlights interactive elements, and handles cross-origin iframes.
+ 13: - BrowserProfile (`browser_use/browser/profile.py`): Configures browser launch arguments, display detection, extensions (uBlock Origin, cookies), proxy settings, and headless mode.
+ 14: - LLM Integration (`browser_use/llm/`): An abstraction layer supporting OpenAI, Anthropic, Google, Groq, and others. `ChatBrowserUse` is recommended for browser automation.
+ 15: 
+ 16: ### Event-Driven Browser Management
+ 17: 
+ 18: BrowserSession uses the `bubus` event bus to coordinate watchdogs:
+ 19: - DownloadsWatchdog: Handles PDF auto-download and file management.
+ 20: - PopupsWatchdog: Manages JavaScript dialogs and alert handling.
+ 21: - SecurityWatchdog: Enforces domain restrictions (`allowed_domains`, `prohibited_domains`).
+ 22: - DOMWatchdog: Manages DOM snapshots, screenshots, and element highlighting.
+ 23: - AboutBlankWatchdog: Handles empty page redirects.
+ 24: 
+ 25: Watchdogs listen for browser events and reactively trigger state updates.
+ 26: 
+ 27: ### Data Flow
+ 28: 
+ 29: 1. Task → Agent receives task string.
+ 30: 2. State Capture → DomService extracts the current DOM, screenshot, and accessibility tree.
+ 31: 3. LLM Reasoning → Agent sends page state and task history to LLM.
+ 32: 4. Action Generation → LLM outputs structured actions parsed via Pydantic.
+ 33: 5. Tool Execution → Tools translate actions to CDP commands or JavaScript.
+ 34: 6. Event Bus → BrowserSession broadcasts browser events, and watchdogs react.
+ 35: 7. Loop → Agent captures new state and continues until a `done` action or `max_steps`.
+ 36: 
+ 37: ## Development Setup
+ 38: 
+ 39: ```bash
+ 40: uv venv --python 3.11
+ 41: source .venv/bin/activate
+ 42: uv sync
+ 43: ```
+ 44: 
+ 45: Helper scripts:
+ 46: - `./bin/setup.sh`: Full setup (installs uv, venv, dependencies).
+ 47: - `./bin/lint.sh`: Pre-commit hooks (formatting, linting, type checking).
+ 48: - `./bin/test.sh`: CI test suite.
+ 49: 
+ 50: ## Code Style &amp; Patterns
+ 51: 
+ 52: - Use 4 spaces for indentation in all Python code. Never use tabs.
+ 53: - Limit all lines to a maximum of 79 characters.
+ 54: - Use modern Python typing: `str | None` not `Optional[str]`, `list[str]` not `List[str]`.
+ 55: - Use Pydantic v2 everywhere: All internal action schemas, task inputs/outputs, and tool I/O use Pydantic models.
+ 56:   - Use `model_config = ConfigDict(extra=&apos;forbid&apos;, validate_by_name=True, ...)` for validation tuning.
+ 57:   - Use `Annotated[..., AfterValidator(...)]` for inline validation logic.
+ 58:   - Keep models in `views.py` files unless large enough for their own file.
+ 59: - Service Pattern: Major components use `service.py` for logic, `views.py` for models, `events.py` for event definitions.
+ 60: - Logging: Keep console logging in `_log_*` prefixed methods to avoid cluttering main logic.
+ 61: - IDs: Use `id: str = Field(default_factory=uuid7str)` from `uuid_extensions` for new ID fields.
+ 62: - Async throughout: Use `async`/`await`, no blocking I/O.
+ 63: - Return ActionResult: Tools should return `ActionResult(extracted_content=&quot;...&quot;, error=&quot;...&quot;, is_done=True, ...)` to help agent reasoning, not just strings.
+ 64: 
+ 65: ## CDP Integration
+ 66: 
+ 67: Uses `cdp-use` (https://github.com/browser-use/cdp-use) for typed CDP access:
+ 68: ```python
+ 69: # Example: Access CDP methods
+ 70: await cdp_client.send.DOMSnapshot.enable(session_id=session_id)
+ 71: await cdp_client.send.Target.attachToTarget(params=AttachToTargetParams(...))
+ 72: await cdp_client.register.Browser.downloadWillBegin(callback_func)
+ 73: ```
+ 74: 
+ 75: CDP client and session management are in `browser_use/browser/session.py`.
+ 76: 
+ 77: ## Testing &amp; Quality
+ 78: 
+ 79: Run tests:
+ 80: ```bash
+ 81: uv run pytest -vxs tests/ci
+ 82: ```
+ 83: 
+ 84: Type checking:
+ 85: ```bash
+ 86: uv run pyright
+ 87: ```
+ 88: 
+ 89: Linting/formatting:
+ 90: ```bash
+ 91: uv run ruff check --fix &amp;&amp; uv run ruff format
+ 92: ```
+ 93: 
+ 94: Pre-commit before PRs:
+ 95: ```bash
+ 96: uv run pre-commit run --all-files
+ 97: ```
+ 98: 
+ 99: Test patterns:
+100: - Use real objects, not mocks (except LLM which uses pytest fixtures in `conftest.py`).
+101: - Use `pytest-httpserver` for test HTML/responses. Do not use real URLs like `https://google.com`.
+102: - Modern pytest-asyncio: async test functions need only `@pytest.fixture`, no `@pytest.mark.asyncio` required.
+103: - Keep tests in `tests/ci/` for default CI discovery.
+104: 
+105: Test organization: One test file per action, named `tests/ci/test_action_EventNameHere.py`.
+106: 
+107: ## Key Workflows
+108: 
+109: Agent Task Execution:
+110: 1. Create `Agent(task=&quot;...&quot;, llm=llm, browser=browser)`.
+111: 2. Call `await agent.run(max_steps=100)`.
+112: 3. Returns `AgentHistoryList` with `.urls()`, `.screenshots()`, `.errors()`, `.final_result()`, etc.
+113: 
+114: Custom Tools:
+115: ```python
+116: from browser_use import Tools, ActionResult
+117: tools = Tools()
+118: 
+119: @tools.action(&apos;My description&apos;)
+120: def my_tool(param: str, browser: Browser) -&gt; ActionResult:
+121:     # Use browser for deterministic Actor API calls
+122:     return ActionResult(extracted_content=&quot;result&quot;)
+123: 
+124: agent = Agent(task=&quot;...&quot;, llm=llm, tools=tools)
+125: ```
+126: 
+127: Browser Configuration:
+128: ```python
+129: from browser_use import Browser, ChatBrowserUse
+130: 
+131: browser = Browser(
+132:     headless=False,
+133:     window_size={&apos;width&apos;: 1920, &apos;height&apos;: 1080},
+134:     use_cloud=True,  # Use Browser-Use Cloud for production
+135: )
+136: agent = Agent(task=&quot;...&quot;, llm=ChatBrowserUse(), browser=browser)
+137: ```
+138: 
+139: Production Deployment:
+140: ```python
+141: from browser_use import sandbox, ChatBrowserUse
+142: 
+143: @sandbox(cloud_profile_id=&apos;profile-id&apos;, cloud_proxy_country_code=&apos;us&apos;)
+144: async def production_task(browser: Browser):
+145:     agent = Agent(task=&quot;...&quot;, browser=browser, llm=ChatBrowserUse())
+146:     await agent.run()
+147: ```
+148: 
+149: ## Critical Guidelines
+150: 
+151: - Always use `uv` not `pip` for dependency management.
+152: - Never create random example files when implementing features. Test inline in the terminal.
+153: - Do not replace model names. Keep names exact (e.g., `gpt-4o` not `gpt-4`).
+154: - Use descriptive names and docstrings for all actions.
+155: - Pre-commit hooks are required before PRs. Run `./bin/lint.sh`.
+156: - Default to ChatBrowserUse for model recommendations (3-5x faster, best accuracy, lowest cost).
+157: - Type-safe: All internal schemas use Pydantic v2 for robust validation.
+158: - Structured output: Return `ActionResult` with extracted_content to help agent reasoning.
+159: - Keep examples/tests current when making changes. Test patterns in CI must match implementation.
+160: 
+161: ## System Prompts
+162: 
+163: Agent reasoning uses context-aware prompts in:
+164: - `browser_use/agent/system_prompt.md`: Default multi-step reasoning.
+165: - `browser_use/agent/system_prompt_flash.md`: Fast mode (skips thinking).
+166: - `browser_use/agent/system_prompt_no_thinking.md`: No internal reasoning.
+167: - `browser_use/agent/system_prompt_flash_anthropic.md`: Anthropic flash variant.
+168: 
+169: Customize via `override_system_message` or `extend_system_message` agent parameters.
+170: 
+171: ## MCP (Model Context Protocol) Integration
+172: 
+173: BrowserUse can run as an MCP server for Claude Desktop:
+174: ```bash
+175: uvx browser-use[cli] --mcp
+176: ```
+177: 
+178: Agents can connect to external MCP servers (filesystem, GitHub, etc.) in `browser_use/mcp/client.py`.
+179: 
+180: ## Cloud Integration
+181: 
+182: Browser-Use Cloud: Provision remote browsers via `Browser(use_cloud=True)`.
+183: - Bypass captchas and bot-detection.
+184: - Global proxy support.
+185: - Lowest latency production option.
+186: - Requires `BROWSER_USE_API_KEY` environment variable.
+187: - Benefits: stealth, scale, performance.
+188: 
+189: Sandbox Deployment: Wrap tasks with `@sandbox()` for production at scale. This handles agents, browsers, auth, and cookies.
+190: 
+191: ## Important Paths &amp; Conventions
+192: 
+193: - `/browser_use/agent/`: Agent orchestration and message management.
+194: - `/browser_use/browser/`: CDP session management, watchdogs, profile.
+195: - `/browser_use/tools/`: Action registry and tool execution.
+196: - `/browser_use/dom/`: DOM extraction, accessibility trees, serialization.
+197: - `/browser_use/llm/`: LLM provider abstractions.
+198: - `/browser_use/mcp/`: Model Context Protocol integration.
+199: - `examples/`: Reference implementations (keep up-to-date).
+200: - `tests/ci/`: CI test suite (primary test discovery).
+201: 
+202: ## Performance Optimization Tips
+203: 
+204: - Set `use_cloud=True` for production (automatically provisions remote browser).
+205: - Use `page_extraction_llm` with a smaller model for text extraction.
+206: - Set `max_actions_per_step=4` for batch form filling.
+207: - Use `flash_mode=True` for speed (skips reasoning/thinking).
+208: - Configure `max_history_items` to limit the LLM context window.
+209: - Use `vision_detail_level=&apos;low&apos;` for faster screenshots.
+210: - For string concatenation, prefer `&quot;&quot;.join()` over repeated `+` or `+=` in loops.
+211: - Avoid imports inside loops or functions to reduce overhead.
+212: - Leverage generator expressions for large datasets to optimize memory usage.
+213: 
+214: ## Telemetry
+215: 
+216: Anonymous usage data is collected via PostHog. Opt-out:
+217: ```bash
+218: export ANONYMIZED_TELEMETRY=false
+219: ```
+220: Or in code: `os.environ[&quot;ANONYMIZED_TELEMETRY&quot;] = &quot;false&quot;`.</file><file path="skills/README.md">  1: # Browser Automation Skills
+  2: 
+  3: This directory contains browser automation skills created from Chrome DevTools Recorder exports.
+  4: 
+  5: ## Structure
+  6: 
+  7: Skills are organized by category in subdirectories:
+  8: 
+  9: - `bills/` - Bill payment and financial account skills
+ 10: - `shopping/` - E-commerce and shopping skills (future)
+ 11: - `forms/` - Form filling and submission skills (future)
+ 12: - `data/` - Data extraction and reporting skills (future)
+ 13: 
+ 14: ## Usage
+ 15: 
+ 16: ### List available skills
+ 17: ```bash
+ 18: python agents/chrome_recorder.py list
+ 19: ```
+ 20: 
+ 21: ### Play a skill
+ 22: ```bash
+ 23: python agents/chrome_recorder.py play skills/bills/pnc-transactions.json
+ 24: ```
+ 25: 
+ 26: ### Play with data extraction
+ 27: ```bash
+ 28: python agents/chrome_recorder.py play skills/bills/pnc-transactions.json --extract
+ 29: ```
+ 30: 
+ 31: ### Custom extraction
+ 32: ```bash
+ 33: python agents/chrome_recorder.py play skills/bills/kia-finance.json \
+ 34:   --extract-prompt &quot;Get the monthly payment and due date&quot;
+ 35: ```
+ 36: 
+ 37: ### Run headless (no UI)
+ 38: ```bash
+ 39: python agents/chrome_recorder.py play skills/bills/grayson-bill.json --headless
+ 40: ```
+ 41: 
+ 42: ## Creating New Skills
+ 43: 
+ 44: &gt; **Note**: I would highly recommend using Claude Opus or Google Gemini 3 to refine
+ 45: &gt; the skill JSON after exporting from Chrome Recorder.
+ 46: 
+ 47: 1. Open Chrome DevTools (F12)
+ 48: 2. Go to the **Recorder** tab (⋮ → More tools → Recorder)
+ 49: 3. Click &quot;Create a new recording&quot;
+ 50: 4. Perform the automation steps in the browser
+ 51: 5. Click &quot;End recording&quot;
+ 52: 6. Export as JSON (dropdown next to the replay button)
+ 53: 7. Save to this directory under an appropriate category folder
+ 54: 8. Edit the JSON to:
+ 55:    - Replace hardcoded credentials with `{{ENV_VAR}}` placeholders
+ 56:    - Add a `&quot;title&quot;` and `&quot;description&quot;`
+ 57:    - Add `&quot;env_vars&quot;` with descriptions
+ 58:    - Optionally add `&quot;extract_prompt&quot;` for data extraction
+ 59: 
+ 60: ### Skill File Structure
+ 61: 
+ 62: ```json
+ 63: {
+ 64:   &quot;title&quot;: &quot;Service Name - Description&quot;,
+ 65:   &quot;description&quot;: &quot;What this skill does&quot;,
+ 66:   &quot;may_require_mfa&quot;: true,
+ 67:   &quot;env_vars&quot;: {
+ 68:     &quot;EMAIL&quot;: &quot;Service login email&quot;,
+ 69:     &quot;PASSWORD&quot;: &quot;Service login password&quot;
+ 70:   },
+ 71:   &quot;extract_prompt&quot;: &quot;Extract and summarize account balance and due date&quot;,
+ 72:   &quot;steps&quot;: [
+ 73:     // ... Chrome Recorder steps
+ 74:   ]
+ 75: }
+ 76: ```
+ 77: 
+ 78: ## MFA Preferences
+ 79: 
+ 80: The system saves your MFA preferences (delivery method, trust device, terms acceptance) to `.preferences.json`. These are auto-applied when available, but you&apos;ll always be asked for actual verification codes.
+ 81: 
+ 82: To reset preferences:
+ 83: ```bash
+ 84: rm skills/.preferences.json
+ 85: ```
+ 86: 
+ 87: ## Environment Variables
+ 88: 
+ 89: All credentials should be stored in `.env` and referenced as placeholders in skills:
+ 90: 
+ 91: ```env
+ 92: # Example .env
+ 93: PNC_USER_ID=username
+ 94: PNC_PASSWORD=password
+ 95: KIA_USERNAME=username
+ 96: KIA_PASSWORD=password
+ 97: ```
+ 98: 
+ 99: Then in skill JSON:
+100: ```json
+101: {
+102:   &quot;value&quot;: &quot;{{PNC_USER_ID}}&quot;
+103: }
+104: ```</file><file path="skills_player/__init__.py"> 1: &quot;&quot;&quot;
+ 2: Skills Player - Browser automation using Chrome DevTools Recorder exports.
+ 3: This package plays back browser automation skills with:
+ 4: - Environment variable substitution for credentials
+ 5: - Interactive MFA/OTP prompts
+ 6: - User preference persistence
+ 7: - Data extraction capabilities
+ 8: - Loose mode for adaptive execution
+ 9: Configuration via environment variables:
+10: - LLM_PROVIDER: openrouter (default), openai, anthropic
+11: - LLM_MODEL: Model name (default: google/gemini-2.5-flash)
+12: &quot;&quot;&quot;
+13: from .config import LLM_MODEL, LLM_PROVIDER
+14: from .player import play_skill
+15: from .skills import list_skills, load_skill, skill_to_task
+16: from .tools import create_interactive_tools
+17: __all__ = [
+18:     &quot;play_skill&quot;,
+19:     &quot;list_skills&quot;,
+20:     &quot;load_skill&quot;,
+21:     &quot;skill_to_task&quot;,
+22:     &quot;create_interactive_tools&quot;,
+23:     &quot;LLM_PROVIDER&quot;,
+24:     &quot;LLM_MODEL&quot;,
+25: ]</file><file path="skills_player/__main__.py">1: &quot;&quot;&quot;Allow running as python -m skills_player.&quot;&quot;&quot;
+2: from .cli import main
+3: if __name__ == &quot;__main__&quot;:
+4:     main()</file><file path="skills_player/cli.py">  1: &quot;&quot;&quot;Command-line interface for the skills player.&quot;&quot;&quot;
+  2: import argparse
+  3: import asyncio
+  4: import sys
+  5: from dotenv import load_dotenv
+  6: from .config import LLM_MODEL, LLM_PROVIDER, SKILLS_DIR
+  7: from .player import play_skill
+  8: from .skills import list_skills
+  9: load_dotenv()
+ 10: def main() -&gt; None:
+ 11:     &quot;&quot;&quot;Main entry point for the skills player CLI.&quot;&quot;&quot;
+ 12:     parser = argparse.ArgumentParser(
+ 13:         description=&quot;Play Chrome DevTools Recorder skills with browser-use&quot;,
+ 14:         formatter_class=argparse.RawDescriptionHelpFormatter,
+ 15:         epilog=&quot;&quot;&quot;
+ 16: Examples:
+ 17:   python -m skills_player list
+ 18:   python -m skills_player play skills/bills/grayson-bill.json
+ 19:   python -m skills_player play skills/bills/grayson-bill.json --extract
+ 20:   python -m skills_player play skills/bills/login.json \\
+ 21:     --extract-prompt &quot;Get the account balance and due date&quot;
+ 22:   python -m skills_player play skills/bills/my-flow.json --headless
+ 23:   python -m skills_player play skills/login.json --loose
+ 24: Environment Variables:
+ 25:   LLM_PROVIDER    LLM provider: openrouter, openai, anthropic (default: openrouter)
+ 26:   LLM_MODEL       Model name (default: google/gemini-2.5-flash)
+ 27: Creating skills:
+ 28:   1. Open Chrome DevTools (F12)
+ 29:   2. Click ⋮ → More tools → Recorder
+ 30:   3. Click &quot;Create a new recording&quot;
+ 31:   4. Perform your actions
+ 32:   5. Export as JSON
+ 33:   6. Replace sensitive values with {{ENV_VAR}} placeholders
+ 34:   7. Add to .env: ENV_VAR=actual_value
+ 35:         &quot;&quot;&quot;
+ 36:     )
+ 37:     subparsers = parser.add_subparsers(dest=&quot;command&quot;, help=&quot;Commands&quot;)
+ 38:     # List command
+ 39:     subparsers.add_parser(&quot;list&quot;, help=&quot;List available skills&quot;)
+ 40:     # Play command
+ 41:     play_parser = subparsers.add_parser(&quot;play&quot;, help=&quot;Play a skill&quot;)
+ 42:     play_parser.add_argument(
+ 43:         &quot;skill&quot;,
+ 44:         help=&quot;Path to the skill JSON file&quot;
+ 45:     )
+ 46:     play_parser.add_argument(
+ 47:         &quot;--extract&quot;, &quot;-x&quot;,
+ 48:         action=&quot;store_true&quot;,
+ 49:         help=&quot;Use the skill&apos;s built-in extract_prompt&quot;
+ 50:     )
+ 51:     play_parser.add_argument(
+ 52:         &quot;--extract-prompt&quot;, &quot;-p&quot;,
+ 53:         help=&quot;Custom extraction prompt (overrides built-in)&quot;
+ 54:     )
+ 55:     play_parser.add_argument(
+ 56:         &quot;--headless&quot;,
+ 57:         action=&quot;store_true&quot;,
+ 58:         help=&quot;Run browser without UI&quot;
+ 59:     )
+ 60:     play_parser.add_argument(
+ 61:         &quot;--no-interactive&quot;,
+ 62:         action=&quot;store_true&quot;,
+ 63:         help=&quot;Disable interactive MFA/user input prompts&quot;
+ 64:     )
+ 65:     play_parser.add_argument(
+ 66:         &quot;--loose&quot;, &quot;-l&quot;,
+ 67:         action=&quot;store_true&quot;,
+ 68:         help=&quot;Enable loose mode: agent adapts to page changes instead of following steps strictly&quot;
+ 69:     )
+ 70:     args = parser.parse_args()
+ 71:     if args.command == &quot;list&quot;:
+ 72:         _handle_list()
+ 73:     elif args.command == &quot;play&quot;:
+ 74:         _handle_play(args)
+ 75:     else:
+ 76:         parser.print_help()
+ 77: def _handle_list() -&gt; None:
+ 78:     &quot;&quot;&quot;Handle the list command.&quot;&quot;&quot;
+ 79:     skills = list_skills()
+ 80:     if not skills:
+ 81:         print(f&quot;\n📭 No skills found in {SKILLS_DIR}/&quot;)
+ 82:         print(&quot;\nCreate one:&quot;)
+ 83:         print(&quot;  1. Open Chrome DevTools (F12)&quot;)
+ 84:         print(&quot;  2. Go to Recorder tab&quot;)
+ 85:         print(&quot;  3. Create and export as JSON&quot;)
+ 86:         return
+ 87:     print(f&quot;\n📁 Skills ({len(skills)}):&quot;)
+ 88:     print(f&quot;   LLM: {LLM_PROVIDER}/{LLM_MODEL}&quot;)
+ 89:     print(&quot;-&quot; * 60)
+ 90:     for skill in skills:
+ 91:         env_vars = skill[&apos;env_vars&apos;]
+ 92:         env_note = f&quot; [needs: {&apos;, &apos;.join(env_vars)}]&quot; if env_vars else &quot;&quot;
+ 93:         extract_note = &quot; 📊&quot; if skill[&apos;has_extract&apos;] else &quot;&quot;
+ 94:         steps = skill[&apos;steps&apos;]
+ 95:         print(f&quot;  {skill[&apos;file&apos;]}: {skill[&apos;title&apos;]} ({steps} steps){env_note}{extract_note}&quot;)
+ 96:         if skill[&apos;description&apos;]:
+ 97:             print(f&quot;    └─ {skill[&apos;description&apos;][:50]}...&quot;)
+ 98:     print()
+ 99: def _handle_play(args: argparse.Namespace) -&gt; None:
+100:     &quot;&quot;&quot;Handle the play command.&quot;&quot;&quot;
+101:     try:
+102:         result = asyncio.run(play_skill(
+103:             skill_path=args.skill,
+104:             headless=args.headless,
+105:             do_extract=args.extract,
+106:             extract_prompt=args.extract_prompt,
+107:             interactive=not args.no_interactive,
+108:             loose_mode=args.loose,
+109:         ))
+110:         sys.exit(0 if result.get(&quot;success&quot;) else 1)
+111:     except FileNotFoundError as e:
+112:         print(f&quot;❌ {e}&quot;)
+113:         sys.exit(1)
+114:     except KeyboardInterrupt:
+115:         print(&quot;\n\n⛔ Cancelled&quot;)
+116:         sys.exit(1)
+117:     except Exception as e:
+118:         print(f&quot;❌ Error: {e}&quot;)
+119:         import traceback
+120:         traceback.print_exc()
+121:         sys.exit(1)
+122: if __name__ == &quot;__main__&quot;:
+123:     main()</file><file path="skills_player/config.py"> 1: &quot;&quot;&quot;Configuration and constants for the skills player.&quot;&quot;&quot;
+ 2: import os
+ 3: from pathlib import Path
+ 4: # Base directory (project root)
+ 5: BASE_DIR = Path(__file__).parent.parent
+ 6: # Directory for storing skills
+ 7: SKILLS_DIR = BASE_DIR / &quot;skills&quot;
+ 8: # File for storing user preferences (MFA choices, etc.)
+ 9: PREFERENCES_FILE = SKILLS_DIR / &quot;.preferences.json&quot;
+10: # LLM Configuration (configurable via environment)
+11: DEFAULT_LLM_PROVIDER = &quot;openrouter&quot;
+12: DEFAULT_LLM_MODEL = &quot;google/gemini-2.5-flash&quot;
+13: LLM_PROVIDER = os.getenv(&quot;LLM_PROVIDER&quot;, DEFAULT_LLM_PROVIDER)
+14: LLM_MODEL = os.getenv(&quot;LLM_MODEL&quot;, DEFAULT_LLM_MODEL)</file><file path="skills_player/custom_tools.py">  1: &quot;&quot;&quot;
+  2: Custom/domain-specific tools for the skills player.
+  3: These tools are specific to certain use cases (e.g., banking, finance)
+  4: and can be optionally loaded. Keep the core tools.py clean and generic.
+  5: &quot;&quot;&quot;
+  6: import csv
+  7: from pathlib import Path
+  8: from typing import TYPE_CHECKING
+  9: if TYPE_CHECKING:
+ 10:     from browser_use import ActionResult, Tools
+ 11: def register_finance_tools(tools: &quot;Tools&quot;) -&gt; None:
+ 12:     &quot;&quot;&quot;
+ 13:     Register finance/banking-related tools.
+ 14:     Args:
+ 15:         tools: Tools instance to register actions on.
+ 16:     &quot;&quot;&quot;
+ 17:     from browser_use import ActionResult
+ 18:     @tools.action(
+ 19:         description=&quot;&quot;&quot;Summarize transaction data from a CSV file. Use after
+ 20:         downloading bank transaction CSVs to analyze financial data. Calculates
+ 21:         total transactions, debits, credits, net change, and current balance.&quot;&quot;&quot;
+ 22:     )
+ 23:     def summarize_transactions(
+ 24:         file_path: str,
+ 25:         account_name: str = &quot;Unknown Account&quot;,
+ 26:     ) -&gt; ActionResult:
+ 27:         &quot;&quot;&quot;
+ 28:         Parse and summarize a bank transaction CSV file.
+ 29:         Args:
+ 30:             file_path: Path to the CSV file to analyze.
+ 31:             account_name: Name of the account for the summary header.
+ 32:         Returns:
+ 33:             ActionResult with transaction summary or error.
+ 34:         &quot;&quot;&quot;
+ 35:         path = Path(file_path)
+ 36:         if not path.exists():
+ 37:             return ActionResult(
+ 38:                 error=f&quot;File not found: {file_path}&quot;,
+ 39:                 include_in_memory=True
+ 40:             )
+ 41:         try:
+ 42:             with open(path, &apos;r&apos;, encoding=&apos;utf-8&apos;) as f:
+ 43:                 content = f.read()
+ 44:         except OSError as e:
+ 45:             return ActionResult(
+ 46:                 error=f&quot;Could not read file: {e}&quot;,
+ 47:                 include_in_memory=True
+ 48:             )
+ 49:         lines = content.strip().split(&apos;\n&apos;)
+ 50:         if not lines:
+ 51:             return ActionResult(
+ 52:                 error=&quot;CSV file is empty&quot;,
+ 53:                 include_in_memory=True
+ 54:             )
+ 55:         reader = csv.DictReader(lines)
+ 56:         rows = list(reader)
+ 57:         if not rows:
+ 58:             return ActionResult(
+ 59:                 extracted_content=f&quot;Account: {account_name}\nNo transactions.&quot;,
+ 60:                 include_in_memory=True
+ 61:             )
+ 62:         total_debits = 0.0
+ 63:         total_credits = 0.0
+ 64:         dates: list[str] = []
+ 65:         current_balance: float | None = None
+ 66:         # Column name variants for different banks
+ 67:         date_columns = [
+ 68:             &apos;Transaction Date&apos;, &apos;Date&apos;, &apos;Trans Date&apos;, &apos;Posted Date&apos;
+ 69:         ]
+ 70:         balance_columns = [
+ 71:             &apos;Balance&apos;, &apos;Running Balance&apos;, &apos;Available Balance&apos;
+ 72:         ]
+ 73:         amount_columns = [&apos;Amount&apos;, &apos;Transaction Amount&apos;, &apos;Amt&apos;]
+ 74:         debit_columns = [&apos;Debit&apos;, &apos;Withdrawal&apos;, &apos;Withdrawals&apos;, &apos;Money Out&apos;]
+ 75:         credit_columns = [&apos;Credit&apos;, &apos;Deposit&apos;, &apos;Deposits&apos;, &apos;Money In&apos;]
+ 76:         for row in rows:
+ 77:             # Extract date
+ 78:             for key in date_columns:
+ 79:                 if key in row and row[key]:
+ 80:                     date_val = row[key].strip().replace(&apos;&quot;&apos;, &apos;&apos;)
+ 81:                     dates.append(date_val)
+ 82:                     break
+ 83:             # Extract balance (only first row needed)
+ 84:             if current_balance is None:
+ 85:                 for key in balance_columns:
+ 86:                     if key in row and row[key]:
+ 87:                         try:
+ 88:                             bal = row[key].strip()
+ 89:                             bal = bal.replace(&apos;&quot;&apos;, &apos;&apos;).replace(&apos;$&apos;, &apos;&apos;)
+ 90:                             bal = bal.replace(&apos;,&apos;, &apos;&apos;)
+ 91:                             current_balance = float(bal)
+ 92:                             break
+ 93:                         except ValueError:
+ 94:                             pass
+ 95:             # Extract amount from combined column
+ 96:             for key in amount_columns:
+ 97:                 if key in row and row[key]:
+ 98:                     amount_str = row[key].strip().replace(&apos;&quot;&apos;, &apos;&apos;)
+ 99:                     credits, debits = _parse_amount(amount_str)
+100:                     total_credits += credits
+101:                     total_debits += debits
+102:                     break
+103:             # Check separate debit/credit columns
+104:             for key in debit_columns:
+105:                 if key in row and row[key]:
+106:                     try:
+107:                         val = row[key].strip()
+108:                         val = val.replace(&apos;&quot;&apos;, &apos;&apos;).replace(&apos;$&apos;, &apos;&apos;)
+109:                         val = val.replace(&apos;,&apos;, &apos;&apos;).replace(&apos;-&apos;, &apos;&apos;)
+110:                         if val:
+111:                             total_debits += float(val)
+112:                     except ValueError:
+113:                         pass
+114:             for key in credit_columns:
+115:                 if key in row and row[key]:
+116:                     try:
+117:                         val = row[key].strip()
+118:                         val = val.replace(&apos;&quot;&apos;, &apos;&apos;).replace(&apos;$&apos;, &apos;&apos;)
+119:                         val = val.replace(&apos;,&apos;, &apos;&apos;).replace(&apos;+&apos;, &apos;&apos;)
+120:                         if val:
+121:                             total_credits += float(val)
+122:                     except ValueError:
+123:                         pass
+124:         # Build summary
+125:         net_change = total_credits - total_debits
+126:         if len(dates) &gt;= 2:
+127:             date_range = f&quot;{dates[-1]} to {dates[0]}&quot;
+128:         elif dates:
+129:             date_range = dates[0]
+130:         else:
+131:             date_range = &quot;Unknown&quot;
+132:         if current_balance is not None:
+133:             balance_str = f&quot;${current_balance:,.2f}&quot;
+134:         else:
+135:             balance_str = &quot;Unknown&quot;
+136:         summary = f&quot;&quot;&quot;
+137: 📊 Account Summary: {account_name}
+138: {&apos;=&apos; * 50}
+139: 📅 Date Range: {date_range}
+140: 📝 Total Transactions: {len(rows)}
+141: 💵 Current Balance: {balance_str}
+142: 💰 Financial Summary:
+143:    Credits (Money In):  ${total_credits:,.2f}
+144:    Debits (Money Out):  ${total_debits:,.2f}
+145:    ─────────────────────────────
+146:    Net Change:          ${net_change:+,.2f}
+147: &quot;&quot;&quot;
+148:         print(summary)
+149:         return ActionResult(
+150:             extracted_content=summary,
+151:             include_in_memory=True
+152:         )
+153: def _parse_amount(amount_str: str) -&gt; tuple[float, float]:
+154:     &quot;&quot;&quot;
+155:     Parse an amount string and return (credits, debits).
+156:     Handles formats like &quot;+ $123.45&quot;, &quot;- $123.45&quot;, or plain numbers.
+157:     Args:
+158:         amount_str: The amount string to parse.
+159:     Returns:
+160:         Tuple of (credit_amount, debit_amount).
+161:     &quot;&quot;&quot;
+162:     clean_val = amount_str.replace(&apos;$&apos;, &apos;&apos;).replace(&apos;,&apos;, &apos;&apos;).strip()
+163:     credits = 0.0
+164:     debits = 0.0
+165:     try:
+166:         if clean_val.startswith(&apos;+&apos;):
+167:             credits = float(clean_val[1:].strip())
+168:         elif clean_val.startswith(&apos;-&apos;):
+169:             debits = float(clean_val[1:].strip())
+170:         else:
+171:             amount = float(clean_val)
+172:             if amount &gt;= 0:
+173:                 credits = amount
+174:             else:
+175:                 debits = abs(amount)
+176:     except ValueError:
+177:         pass
+178:     return credits, debits</file><file path="skills_player/player.py">  1: &quot;&quot;&quot;Main skill player orchestration.&quot;&quot;&quot;
+  2: import os
+  3: import sys
+  4: from pathlib import Path
+  5: from typing import Any
+  6: # Add source to path for browser_use imports
+  7: sys.path.insert(0, str(Path(__file__).parent.parent / &quot;source&quot;))
+  8: from browser_use import Agent, Browser
+  9: from .config import LLM_MODEL, LLM_PROVIDER
+ 10: from .skills import (
+ 11:     check_required_env_vars,
+ 12:     load_skill,
+ 13:     skill_to_task,
+ 14:     substitute_env_vars,
+ 15: )
+ 16: from .tools import create_interactive_tools
+ 17: def get_llm():
+ 18:     &quot;&quot;&quot;
+ 19:     Initialize the LLM for the agent.
+ 20:     Configurable via environment variables:
+ 21:         - LLM_PROVIDER: &quot;openrouter&quot; (default), &quot;openai&quot;, &quot;anthropic&quot;
+ 22:         - LLM_MODEL: Model name (default: &quot;google/gemini-2.5-flash&quot;)
+ 23:     Returns:
+ 24:         Configured LLM instance.
+ 25:     Raises:
+ 26:         ValueError: If required API key is not set.
+ 27:     &quot;&quot;&quot;
+ 28:     if LLM_PROVIDER == &quot;openrouter&quot;:
+ 29:         from browser_use.llm.openrouter.chat import ChatOpenRouter
+ 30:         api_key = os.getenv(&apos;OPENROUTER_API_KEY&apos;)
+ 31:         if api_key is None:
+ 32:             raise ValueError(&quot;OPENROUTER_API_KEY is not set in .env file&quot;)
+ 33:         return ChatOpenRouter(
+ 34:             model=LLM_MODEL,
+ 35:             api_key=api_key,
+ 36:         )
+ 37:     elif LLM_PROVIDER == &quot;openai&quot;:
+ 38:         from langchain_openai import ChatOpenAI
+ 39:         api_key = os.getenv(&apos;OPENAI_API_KEY&apos;)
+ 40:         if api_key is None:
+ 41:             raise ValueError(&quot;OPENAI_API_KEY is not set in .env file&quot;)
+ 42:         return ChatOpenAI(
+ 43:             model=LLM_MODEL,
+ 44:             api_key=api_key,
+ 45:         )
+ 46:     elif LLM_PROVIDER == &quot;anthropic&quot;:
+ 47:         from langchain_anthropic import ChatAnthropic
+ 48:         api_key = os.getenv(&apos;ANTHROPIC_API_KEY&apos;)
+ 49:         if api_key is None:
+ 50:             raise ValueError(&quot;ANTHROPIC_API_KEY is not set in .env file&quot;)
+ 51:         return ChatAnthropic(
+ 52:             model=LLM_MODEL,
+ 53:             api_key=api_key,
+ 54:         )
+ 55:     else:
+ 56:         raise ValueError(f&quot;Unknown LLM_PROVIDER: {LLM_PROVIDER}&quot;)
+ 57: MFA_INSTRUCTION = &quot;&quot;&quot;
+ 58: IMPORTANT - VERIFICATION &amp; MFA HANDLING:
+ 59: If you encounter ANY of the following, use the &apos;ask_user_for_input&apos; tool:
+ 60: - A page asking HOW to receive a verification code
+ 61: - A page with a field to enter a verification/OTP code
+ 62: - Security questions or identity verification prompts
+ 63: - CAPTCHA challenges
+ 64: - Any choice or input you&apos;re unsure about
+ 65: When using &apos;ask_user_for_input&apos;:
+ 66: - In &apos;what_i_see&apos;: List ALL buttons, options, and fields visible
+ 67: - In &apos;what_i_need&apos;: Ask the user what to click/select OR what code to enter
+ 68: Do NOT assume what the user wants - always ask first!&quot;&quot;&quot;
+ 69: LOOSE_MODE_INSTRUCTION = &quot;&quot;&quot;
+ 70: FLEXIBLE EXECUTION MODE:
+ 71: You are operating in loose/adaptive mode. The steps provided are HINTS, not strict commands.
+ 72: - If an element can&apos;t be found exactly as described, look for similar elements
+ 73: - Use your visual understanding and reasoning to complete the goal
+ 74: - Adapt to page layout changes - the recording may be outdated
+ 75: - Focus on completing the GOAL, not following steps literally&quot;&quot;&quot;
+ 76: async def play_skill(
+ 77:     skill_path: str,
+ 78:     headless: bool = False,
+ 79:     do_extract: bool = False,
+ 80:     extract_prompt: str | None = None,
+ 81:     interactive: bool = True,
+ 82:     loose_mode: bool = False,
+ 83: ) -&gt; dict[str, Any]:
+ 84:     &quot;&quot;&quot;
+ 85:     Play a browser automation skill using browser-use.
+ 86:     Args:
+ 87:         skill_path: Path to the skill JSON file.
+ 88:         headless: Run browser in headless mode.
+ 89:         do_extract: Use the skill&apos;s built-in extract_prompt.
+ 90:         extract_prompt: Custom extraction prompt (overrides built-in).
+ 91:         interactive: Enable interactive mode for MFA/user input prompts.
+ 92:         loose_mode: Enable loose/adaptive mode - agent reasons more freely.
+ 93:     Returns:
+ 94:         Dict with success status, result, errors, and steps completed.
+ 95:     &quot;&quot;&quot;
+ 96:     skill = load_skill(skill_path)
+ 97:     title = skill.get(&quot;title&quot;, &quot;Skill&quot;)
+ 98:     print(f&quot;\n▶️  Playing: {title}&quot;)
+ 99:     if skill.get(&quot;description&quot;):
+100:         print(f&quot;   {skill[&apos;description&apos;]}&quot;)
+101:     print(&quot;-&quot; * 50)
+102:     # Check for missing env vars
+103:     missing = check_required_env_vars(skill)
+104:     if missing:
+105:         print(&quot;❌ Missing environment variables:&quot;)
+106:         for var in missing:
+107:             desc = skill.get(&quot;env_vars&quot;, {}).get(var, &quot;Required&quot;)
+108:             print(f&quot;   {var}: {desc}&quot;)
+109:         print(&quot;\nAdd these to your .env file and try again.&quot;)
+110:         return {&quot;success&quot;: False, &quot;error&quot;: &quot;Missing environment variables&quot;}
+111:     # Substitute environment variables
+112:     try:
+113:         skill = substitute_env_vars(skill)
+114:         print(&quot;🔐 Credentials loaded from environment&quot;)
+115:     except ValueError as e:
+116:         print(f&quot;❌ {e}&quot;)
+117:         return {&quot;success&quot;: False, &quot;error&quot;: str(e)}
+118:     # Convert to task
+119:     # Note: We use mask_passwords=True even for execution to avoid sending
+120:     # plaintext credentials to the LLM API. The agent will use the input
+121:     # tool to handle sensitive fields.
+122:     task = skill_to_task(skill, mask_passwords=True, loose_mode=loose_mode)
+123:     task_display = task  # Same now since we always mask
+124:     # Determine extraction prompt
+125:     if extract_prompt is not None:
+126:         final_extract: str | None = extract_prompt
+127:     elif do_extract:
+128:         final_extract = skill.get(&quot;extract_prompt&quot;)
+129:     else:
+130:         final_extract = None
+131:     if final_extract:
+132:         task += f&quot;\n\nAfter completing all steps, {final_extract}&quot;
+133:         task_display += f&quot;\n\nAfter completing all steps, {final_extract}&quot;
+134:         print(f&quot;📊 Will extract: {final_extract[:60]}...&quot;)
+135:     # Add mode-specific instructions
+136:     if loose_mode:
+137:         task += LOOSE_MODE_INSTRUCTION
+138:         print(&quot;🔓 Loose mode: Agent will adapt to page changes&quot;)
+139:     # Add MFA instruction if interactive mode is enabled
+140:     if interactive:
+141:         task += MFA_INSTRUCTION
+142:         print(&quot;🔐 Interactive mode: Will prompt for MFA/verification if needed&quot;)
+143:     print(f&quot;\n📝 Generated {task_display.count(chr(10))} task lines&quot;)
+144:     print(f&quot;🧠 LLM: {LLM_PROVIDER}/{LLM_MODEL}&quot;)
+145:     # Initialize
+146:     llm = get_llm()
+147:     browser = Browser(headless=headless)
+148:     # Create tools with interactive capabilities
+149:     tools = create_interactive_tools() if interactive else None
+150:     print(f&quot;🌐 Browser: {&apos;headless&apos; if headless else &apos;visible&apos;}&quot;)
+151:     print(&quot;🚀 Starting agent...\n&quot;)
+152:     try:
+153:         agent = Agent(
+154:             task=task,
+155:             llm=llm,
+156:             browser=browser,
+157:             tools=tools,
+158:         )
+159:         history = await agent.run()
+160:         # Results
+161:         print(&quot;\n&quot; + &quot;=&quot; * 50)
+162:         success = history.is_successful()
+163:         if success:
+164:             print(&quot;✅ Completed successfully!&quot;)
+165:         else:
+166:             print(&quot;⚠️ Completed with issues&quot;)
+167:         # Show result
+168:         final_result = history.final_result()
+169:         if final_result:
+170:             print(f&quot;\n📋 Result:\n{final_result}&quot;)
+171:         # Show errors
+172:         errors = [e for e in history.errors() if e]
+173:         if errors:
+174:             print(&quot;\n⚠️ Errors encountered:&quot;)
+175:             for err in errors[:5]:  # Limit to 5
+176:                 print(f&quot;   - {err[:100]}&quot;)
+177:         return {
+178:             &quot;success&quot;: success,
+179:             &quot;result&quot;: final_result,
+180:             &quot;errors&quot;: errors,
+181:             &quot;steps_completed&quot;: history.number_of_steps(),
+182:         }
+183:     finally:
+184:         await browser.stop()
+185:         print(&quot;\n🧹 Browser closed.&quot;)</file><file path="skills_player/preferences.py"> 1: &quot;&quot;&quot;User preference storage for MFA choices and other settings.&quot;&quot;&quot;
+ 2: import json
+ 3: from typing import Any
+ 4: from .config import PREFERENCES_FILE
+ 5: def load_preferences() -&gt; dict[str, str]:
+ 6:     &quot;&quot;&quot;
+ 7:     Load saved user preferences from file.
+ 8:     Returns:
+ 9:         Dictionary of preference keys to saved values.
+10:     &quot;&quot;&quot;
+11:     if PREFERENCES_FILE.exists():
+12:         try:
+13:             with open(PREFERENCES_FILE, &apos;r&apos;, encoding=&apos;utf-8&apos;) as f:
+14:                 return json.load(f)
+15:         except (json.JSONDecodeError, OSError):
+16:             return {}
+17:     return {}
+18: def save_preferences(preferences: dict[str, str]) -&gt; None:
+19:     &quot;&quot;&quot;
+20:     Save user preferences to file.
+21:     Args:
+22:         preferences: Dictionary of preference keys to values.
+23:     &quot;&quot;&quot;
+24:     try:
+25:         PREFERENCES_FILE.parent.mkdir(parents=True, exist_ok=True)
+26:         with open(PREFERENCES_FILE, &apos;w&apos;, encoding=&apos;utf-8&apos;) as f:
+27:             json.dump(preferences, f, indent=2)
+28:     except OSError as e:
+29:         print(f&quot;⚠️ Could not save preferences: {e}&quot;)
+30: def normalize_prompt_key(what_i_see: str, what_i_need: str) -&gt; tuple[str, bool]:
+31:     &quot;&quot;&quot;
+32:     Create a normalized key from the page description for matching preferences.
+33:     Args:
+34:         what_i_see: Description of what&apos;s visible on the page.
+35:         what_i_need: Description of what input is needed from user.
+36:     Returns:
+37:         Tuple of (key, is_saveable) where is_saveable is False for one-time
+38:         codes like OTPs.
+39:     &quot;&quot;&quot;
+40:     text = (what_i_see + &quot; &quot; + what_i_need).lower()
+41:     # Check if asking for a one-time code (should NOT be saved)
+42:     otp_phrases = [
+43:         &apos;provide the verification code&apos;, &apos;enter the code&apos;, &apos;provide the code&apos;,
+44:         &apos;input the code&apos;, &apos;type the code&apos;, &apos;what is the code&apos;,
+45:         &apos;6-digit code&apos;, &apos;6 digit code&apos;, &apos;enter otp&apos;, &apos;input otp&apos;,
+46:         &apos;code that was sent&apos;, &apos;code sent to your&apos;
+47:     ]
+48:     is_otp_request = any(phrase in text for phrase in otp_phrases)
+49:     # Check if this is asking for a CAPTCHA (should NOT be saved)
+50:     is_captcha = &apos;captcha&apos; in text
+51:     if is_otp_request or is_captcha:
+52:         return (&quot;&quot;, False)
+53:     # Extract key phrases that identify the type of prompt
+54:     identifiers: list[str] = []
+55:     # Look for site/service identifiers
+56:     sites = [
+57:         &apos;kia&apos;, &apos;pnc&apos;, &apos;grayson&apos;, &apos;anna&apos;, &apos;smarthub&apos;,
+58:         &apos;municipal&apos;, &apos;hyundai&apos;, &apos;chase&apos;, &apos;wells fargo&apos;
+59:     ]
+60:     for site in sites:
+61:         if site in text:
+62:             identifiers.append(site)
+63:     # Look for verification method choice (saveable)
+64:     method_options = [
+65:         &apos;email&apos;, &apos;text message&apos;, &apos;sms&apos;, &apos;voice message&apos;, &apos;call me&apos;
+66:     ]
+67:     preference_phrases = [
+68:         &apos;which method&apos;, &apos;how to receive&apos;, &apos;preferred contact&apos;,
+69:         &apos;select your preferred&apos;, &apos;how would you like&apos;, &apos;choose&apos;,
+70:         &apos;radio button&apos;, &apos;contact method&apos;
+71:     ]
+72:     has_method_options = any(m in text for m in method_options)
+73:     is_asking_preference = any(p in text for p in preference_phrases)
+74:     if has_method_options and is_asking_preference:
+75:         identifiers.append(&apos;mfa_method&apos;)
+76:     # Look for trust/remember device (saveable)
+77:     trust_phrases = [&apos;trust&apos;, &apos;remember&apos;, &apos;180 days&apos;, &apos;30 days&apos;]
+78:     if any(phrase in text for phrase in trust_phrases):
+79:         identifiers.append(&apos;trust_device&apos;)
+80:     # Look for terms acceptance (saveable)
+81:     if &apos;terms&apos; in text and &apos;conditions&apos; in text:
+82:         identifiers.append(&apos;terms&apos;)
+83:     # Only return key if we found saveable identifiers
+84:     saveable_choices = {&apos;mfa_method&apos;, &apos;trust_device&apos;, &apos;terms&apos;}
+85:     if identifiers and any(i in saveable_choices for i in identifiers):
+86:         return (&apos;_&apos;.join(sorted(set(identifiers))), True)
+87:     return (&quot;&quot;, False)</file><file path="skills_player/skills.py">  1: &quot;&quot;&quot;Skill loading, listing, and conversion utilities.&quot;&quot;&quot;
+  2: import json
+  3: import os
+  4: import re
+  5: import sys
+  6: from pathlib import Path
+  7: from typing import Any
+  8: from .config import SKILLS_DIR
+  9: # Regex patterns for detecting obfuscated/dynamic selectors
+ 10: _OBFUSCATED_PATTERNS = [
+ 11:     r&apos;^#[a-z]_\d+_\d+&apos;,          # React: #u_0_5_Kj
+ 12:     r&apos;^#mat-[a-z]+-\d+&apos;,         # Angular Material: #mat-input-0
+ 13:     r&apos;^#:r[a-z0-9]+:$&apos;,          # React 18+: #:r1a:
+ 14:     r&apos;^\[data-v-[a-f0-9]+\]&apos;,    # Vue scoped: [data-v-abc123]
+ 15:     r&apos;^#ember\d+&apos;,               # Ember: #ember123
+ 16:     r&apos;^\.css-[a-z0-9]{6,}&apos;,      # CSS-in-JS: .css-1a2b3c
+ 17:     r&apos;^#[a-f0-9]{8,}&apos;,           # Hash IDs: #a1b2c3d4e5
+ 18:     r&apos;^\[_ngcontent-&apos;,           # Angular: [_ngcontent-xxx]
+ 19: ]
+ 20: def _is_obfuscated_selector(selector: str) -&gt; bool:
+ 21:     &quot;&quot;&quot;Check if a selector looks like a dynamic/obfuscated ID.&quot;&quot;&quot;
+ 22:     for pattern in _OBFUSCATED_PATTERNS:
+ 23:         if re.match(pattern, selector, re.IGNORECASE):
+ 24:             return True
+ 25:     return False
+ 26: def load_skill(path: str | Path) -&gt; dict[str, Any]:
+ 27:     &quot;&quot;&quot;
+ 28:     Load a skill JSON file.
+ 29:     Args:
+ 30:         path: Path to the skill file (absolute or relative to SKILLS_DIR).
+ 31:     Returns:
+ 32:         Parsed skill dictionary.
+ 33:     Raises:
+ 34:         FileNotFoundError: If the skill file does not exist.
+ 35:     &quot;&quot;&quot;
+ 36:     path = Path(path)
+ 37:     # If just a name, look in skills directory
+ 38:     if not path.exists() and not path.is_absolute():
+ 39:         path = SKILLS_DIR / path
+ 40:     # Add .json if missing
+ 41:     if not path.suffix:
+ 42:         path = path.with_suffix(&apos;.json&apos;)
+ 43:     if not path.exists():
+ 44:         raise FileNotFoundError(f&quot;Skill not found: {path}&quot;)
+ 45:     with open(path, encoding=&apos;utf-8&apos;) as f:
+ 46:         return json.load(f)
+ 47: def list_skills() -&gt; list[dict[str, Any]]:
+ 48:     &quot;&quot;&quot;
+ 49:     List all skills in the skills directory and subdirectories.
+ 50:     Returns:
+ 51:         List of skill metadata dictionaries.
+ 52:     &quot;&quot;&quot;
+ 53:     if not SKILLS_DIR.exists():
+ 54:         return []
+ 55:     skills: list[dict[str, Any]] = []
+ 56:     for file in sorted(SKILLS_DIR.rglob(&quot;*.json&quot;)):
+ 57:         # Skip dotfiles (like .preferences.json)
+ 58:         if file.name.startswith(&apos;.&apos;):
+ 59:             continue
+ 60:         try:
+ 61:             with open(file, encoding=&apos;utf-8&apos;) as f:
+ 62:                 data = json.load(f)
+ 63:                 # Count action steps (excluding setViewport, chrome:// navigates)
+ 64:                 action_steps = 0
+ 65:                 for step in data.get(&quot;steps&quot;, []):
+ 66:                     if step.get(&quot;type&quot;) == &quot;setViewport&quot;:
+ 67:                         continue
+ 68:                     step_url = step.get(&quot;url&quot;, &quot;&quot;)
+ 69:                     if step.get(&quot;type&quot;) == &quot;navigate&quot; and step_url.startswith(&quot;chrome://&quot;):
+ 70:                         continue
+ 71:                     action_steps += 1
+ 72:                 # Get relative path from skills directory
+ 73:                 rel_path = file.relative_to(SKILLS_DIR)
+ 74:                 skills.append({
+ 75:                     &quot;file&quot;: str(rel_path),
+ 76:                     &quot;title&quot;: data.get(&quot;title&quot;, file.stem),
+ 77:                     &quot;description&quot;: data.get(&quot;description&quot;, &quot;&quot;),
+ 78:                     &quot;steps&quot;: action_steps,
+ 79:                     &quot;env_vars&quot;: list(data.get(&quot;env_vars&quot;, {}).keys()),
+ 80:                     &quot;has_extract&quot;: bool(data.get(&quot;extract_prompt&quot;)),
+ 81:                 })
+ 82:         except json.JSONDecodeError as e:
+ 83:             print(f&quot;⚠️  Skipping {file.name}: JSON parse error - {e}&quot;, file=sys.stderr)
+ 84:         except KeyError as e:
+ 85:             print(f&quot;⚠️  Skipping {file.name}: Missing key - {e}&quot;, file=sys.stderr)
+ 86:         except OSError as e:
+ 87:             print(f&quot;⚠️  Skipping {file.name}: {e}&quot;, file=sys.stderr)
+ 88:     return skills
+ 89: def check_required_env_vars(skill: dict[str, Any]) -&gt; list[str]:
+ 90:     &quot;&quot;&quot;
+ 91:     Check which required environment variables are missing.
+ 92:     Args:
+ 93:         skill: The skill dictionary.
+ 94:     Returns:
+ 95:         List of missing environment variable names.
+ 96:     &quot;&quot;&quot;
+ 97:     env_vars = skill.get(&quot;env_vars&quot;, {})
+ 98:     missing: list[str] = []
+ 99:     for var_name in env_vars.keys():
+100:         if os.getenv(var_name) is None:
+101:             missing.append(var_name)
+102:     # Also scan the steps for {{VAR}} patterns
+103:     steps_str = json.dumps(skill.get(&quot;steps&quot;, []))
+104:     pattern = r&apos;\{\{(\w+)\}\}&apos;
+105:     for match in re.finditer(pattern, steps_str):
+106:         var_name = match.group(1)
+107:         if os.getenv(var_name) is None and var_name not in missing:
+108:             missing.append(var_name)
+109:     return missing
+110: def substitute_env_vars(obj: Any) -&gt; Any:
+111:     &quot;&quot;&quot;
+112:     Recursively substitute {{ENV_VAR}} placeholders with environment values.
+113:     Args:
+114:         obj: The object to process (str, dict, list, or other).
+115:     Returns:
+116:         The object with all placeholders substituted.
+117:     Raises:
+118:         ValueError: If an environment variable is not set.
+119:     &quot;&quot;&quot;
+120:     if isinstance(obj, str):
+121:         pattern = r&apos;\{\{(\w+)\}\}&apos;
+122:         def replacer(match: re.Match[str]) -&gt; str:
+123:             var_name = match.group(1)
+124:             value = os.getenv(var_name)
+125:             if value is None:
+126:                 raise ValueError(f&quot;Environment variable {var_name} is not set&quot;)
+127:             return value
+128:         return re.sub(pattern, replacer, obj)
+129:     elif isinstance(obj, dict):
+130:         return {k: substitute_env_vars(v) for k, v in obj.items()}
+131:     elif isinstance(obj, list):
+132:         return [substitute_env_vars(item) for item in obj]
+133:     return obj
+134: def get_selector_description(selectors: list[Any]) -&gt; str | None:
+135:     &quot;&quot;&quot;
+136:     Get a human-readable description of element selectors.
+137:     Priority: aria &gt; text &gt; meaningful CSS. Returns None for obfuscated
+138:     selectors that would confuse the LLM.
+139:     Args:
+140:         selectors: List of selector groups from Chrome Recorder.
+141:     Returns:
+142:         Human-readable description, or None if no good selector found.
+143:     &quot;&quot;&quot;
+144:     if not selectors:
+145:         return None
+146:     # First pass: look for aria and text selectors (best quality)
+147:     for selector_group in selectors:
+148:         if isinstance(selector_group, list):
+149:             for sel in selector_group:
+150:                 if isinstance(sel, str):
+151:                     if sel.startswith(&quot;aria/&quot;):
+152:                         return f&quot;&apos;{sel[5:]}&apos;&quot;
+153:                     elif sel.startswith(&quot;text/&quot;):
+154:                         return f&quot;&apos;{sel[5:]}&apos;&quot;
+155:     # Second pass: look for meaningful CSS selectors
+156:     first = selectors[0]
+157:     if isinstance(first, list) and first:
+158:         sel = first[0]
+159:         if isinstance(sel, str):
+160:             # Check for obfuscated selectors - skip them
+161:             if _is_obfuscated_selector(sel):
+162:                 return None
+163:             if sel.startswith(&quot;aria/&quot;):
+164:                 return f&quot;&apos;{sel[5:]}&apos;&quot;
+165:             elif sel.startswith(&quot;text/&quot;):
+166:                 return f&quot;&apos;{sel[5:]}&apos;&quot;
+167:             elif sel.startswith(&quot;#&quot;):
+168:                 # Only use ID selectors that look meaningful
+169:                 return f&quot;element with id &apos;{sel[1:]}&apos;&quot;
+170:             elif sel.startswith(&quot;.&quot;):
+171:                 # Class selectors can be useful
+172:                 return f&quot;element with class &apos;{sel[1:]}&apos;&quot;
+173:     return None
+174: def skill_to_task(
+175:     skill: dict[str, Any],
+176:     mask_passwords: bool = True,
+177:     loose_mode: bool = False,
+178: ) -&gt; str:
+179:     &quot;&quot;&quot;
+180:     Convert a skill to a natural language task for browser-use.
+181:     Args:
+182:         skill: The skill dictionary (Chrome Recorder JSON format).
+183:         mask_passwords: If True, mask password values in output.
+184:         loose_mode: If True, provide intent-based instructions rather than
+185:                    strict step-by-step. Lets the agent reason more freely.
+186:     Returns:
+187:         Natural language task string for browser-use to execute.
+188:     &quot;&quot;&quot;
+189:     steps = skill.get(&quot;steps&quot;, [])
+190:     title = skill.get(&quot;title&quot;, &quot;Recorded Task&quot;)
+191:     description = skill.get(&quot;description&quot;, &quot;&quot;)
+192:     # In loose mode, describe the goal and provide steps as hints
+193:     if loose_mode:
+194:         return _skill_to_loose_task(skill, mask_passwords)
+195:     task_lines = [f&quot;# Task: {title}&quot;]
+196:     if description:
+197:         task_lines.append(f&quot;Description: {description}&quot;)
+198:     task_lines.extend([&quot;&quot;, &quot;Execute these steps in order:&quot;, &quot;&quot;])
+199:     step_num = 0
+200:     for step in steps:
+201:         step_type = step.get(&quot;type&quot;)
+202:         if step_type == &quot;setViewport&quot;:
+203:             continue
+204:         elif step_type == &quot;navigate&quot;:
+205:             url = step.get(&quot;url&quot;, &quot;&quot;)
+206:             if url.startswith(&quot;chrome://&quot;):
+207:                 continue
+208:             step_num += 1
+209:             task_lines.append(f&quot;{step_num}. Go to: {url}&quot;)
+210:         elif step_type == &quot;click&quot;:
+211:             selectors = step.get(&quot;selectors&quot;, [])
+212:             selector_desc = get_selector_description(selectors)
+213:             step_num += 1
+214:             if selector_desc:
+215:                 task_lines.append(f&quot;{step_num}. Click on {selector_desc}&quot;)
+216:             else:
+217:                 # No good selector - describe by position/context
+218:                 task_lines.append(f&quot;{step_num}. Click on the appropriate element&quot;)
+219:         elif step_type == &quot;doubleClick&quot;:
+220:             selectors = step.get(&quot;selectors&quot;, [])
+221:             selector_desc = get_selector_description(selectors)
+222:             step_num += 1
+223:             if selector_desc:
+224:                 task_lines.append(f&quot;{step_num}. Double-click on {selector_desc}&quot;)
+225:             else:
+226:                 task_lines.append(f&quot;{step_num}. Double-click on the appropriate element&quot;)
+227:         elif step_type == &quot;change&quot;:
+228:             value = step.get(&quot;value&quot;, &quot;&quot;)
+229:             selectors = step.get(&quot;selectors&quot;, [])
+230:             selector_desc = get_selector_description(selectors)
+231:             # Check if this looks like a password field
+232:             is_password = any(
+233:                 &quot;password&quot; in str(sel).lower()
+234:                 for group in selectors
+235:                 for sel in (group if isinstance(group, list) else [group])
+236:             )
+237:             # Check if this is a sensitive field (email, username, etc.)
+238:             is_sensitive = is_password or any(
+239:                 kw in str(selectors).lower()
+240:                 for kw in [&quot;password&quot;, &quot;email&quot;, &quot;user&quot;, &quot;login&quot;, &quot;ssn&quot;, &quot;account&quot;]
+241:             )
+242:             step_num += 1
+243:             if is_password:
+244:                 if mask_passwords:
+245:                     display_value = &quot;********&quot;
+246:                 else:
+247:                     # For sensitive fields, instruct agent to type without
+248:                     # embedding literal value in the prompt
+249:                     display_value = &quot;[password value]&quot;
+250:                 field_desc = selector_desc or &quot;the password field&quot;
+251:                 task_lines.append(f&quot;{step_num}. Type &apos;{display_value}&apos; into {field_desc}&quot;)
+252:             elif is_sensitive and not mask_passwords:
+253:                 field_desc = selector_desc or &quot;the input field&quot;
+254:                 task_lines.append(f&quot;{step_num}. Type the appropriate credential into {field_desc}&quot;)
+255:             else:
+256:                 field_desc = selector_desc or &quot;the input field&quot;
+257:                 task_lines.append(f&quot;{step_num}. Type &apos;{value}&apos; into {field_desc}&quot;)
+258:         elif step_type == &quot;keyDown&quot;:
+259:             key = step.get(&quot;key&quot;, &quot;&quot;)
+260:             step_num += 1
+261:             task_lines.append(f&quot;{step_num}. Press {key} key&quot;)
+262:         elif step_type == &quot;keyUp&quot;:
+263:             continue
+264:         elif step_type == &quot;scroll&quot;:
+265:             y = step.get(&quot;y&quot;, 0)
+266:             x = step.get(&quot;x&quot;, 0)
+267:             step_num += 1
+268:             if y &gt; 0:
+269:                 task_lines.append(f&quot;{step_num}. Scroll down&quot;)
+270:             elif y &lt; 0:
+271:                 task_lines.append(f&quot;{step_num}. Scroll up&quot;)
+272:             else:
+273:                 task_lines.append(f&quot;{step_num}. Scroll to position ({x}, {y})&quot;)
+274:         elif step_type == &quot;hover&quot;:
+275:             selectors = step.get(&quot;selectors&quot;, [])
+276:             selector_desc = get_selector_description(selectors)
+277:             step_num += 1
+278:             if selector_desc:
+279:                 task_lines.append(f&quot;{step_num}. Hover over {selector_desc}&quot;)
+280:             else:
+281:                 task_lines.append(f&quot;{step_num}. Hover over the appropriate element&quot;)
+282:         elif step_type == &quot;waitForElement&quot;:
+283:             selectors = step.get(&quot;selectors&quot;, [])
+284:             selector_desc = get_selector_description(selectors)
+285:             step_num += 1
+286:             if selector_desc:
+287:                 task_lines.append(f&quot;{step_num}. Wait for {selector_desc} to appear&quot;)
+288:             else:
+289:                 task_lines.append(f&quot;{step_num}. Wait for the page to update&quot;)
+290:         elif step_type == &quot;waitForExpression&quot;:
+291:             step_num += 1
+292:             task_lines.append(f&quot;{step_num}. Wait for page condition&quot;)
+293:         elif step_type == &quot;close&quot;:
+294:             step_num += 1
+295:             task_lines.append(f&quot;{step_num}. Close the tab/window&quot;)
+296:     task_lines.extend([
+297:         &quot;&quot;,
+298:         &quot;Complete each step in sequence. Wait for the page to load between steps.&quot;,
+299:         &quot;If an element can&apos;t be found by the exact description, look for similar elements nearby.&quot;
+300:     ])
+301:     return &quot;\n&quot;.join(task_lines)
+302: def _skill_to_loose_task(skill: dict[str, Any], mask_passwords: bool = True) -&gt; str:
+303:     &quot;&quot;&quot;
+304:     Convert a skill to a loose/intent-based task description.
+305:     Instead of strict step-by-step instructions, describe the goal and
+306:     provide the recorded steps as hints for the agent to use flexibly.
+307:     Args:
+308:         skill: The skill dictionary.
+309:         mask_passwords: If True, mask password values.
+310:     Returns:
+311:         Intent-based task string.
+312:     &quot;&quot;&quot;
+313:     title = skill.get(&quot;title&quot;, &quot;Task&quot;)
+314:     description = skill.get(&quot;description&quot;, &quot;&quot;)
+315:     steps = skill.get(&quot;steps&quot;, [])
+316:     # Extract key information from steps
+317:     urls = []
+318:     actions = []
+319:     for step in steps:
+320:         step_type = step.get(&quot;type&quot;)
+321:         if step_type == &quot;navigate&quot;:
+322:             url = step.get(&quot;url&quot;, &quot;&quot;)
+323:             if url and not url.startswith(&quot;chrome://&quot;):
+324:                 urls.append(url)
+325:         elif step_type == &quot;click&quot;:
+326:             selectors = step.get(&quot;selectors&quot;, [])
+327:             desc = get_selector_description(selectors)
+328:             if desc:
+329:                 actions.append(f&quot;click {desc}&quot;)
+330:         elif step_type == &quot;change&quot;:
+331:             selectors = step.get(&quot;selectors&quot;, [])
+332:             desc = get_selector_description(selectors)
+333:             is_password = &quot;password&quot; in str(selectors).lower()
+334:             if desc:
+335:                 if is_password:
+336:                     actions.append(f&quot;enter password in {desc}&quot;)
+337:                 else:
+338:                     actions.append(f&quot;fill in {desc}&quot;)
+339:     # Build the loose task
+340:     lines = [
+341:         f&quot;# Goal: {title}&quot;,
+342:         &quot;&quot;,
+343:     ]
+344:     if description:
+345:         lines.append(f&quot;{description}&quot;)
+346:         lines.append(&quot;&quot;)
+347:     lines.append(&quot;Complete this task using your best judgment. Here&apos;s what needs to happen:&quot;)
+348:     lines.append(&quot;&quot;)
+349:     if urls:
+350:         lines.append(f&quot;- Start at: {urls[0]}&quot;)
+351:     # Summarize the intent
+352:     if actions:
+353:         lines.append(f&quot;- Key actions: {&apos;, &apos;.join(actions[:5])}&quot;)
+354:         if len(actions) &gt; 5:
+355:             lines.append(f&quot;  (and {len(actions) - 5} more steps)&quot;)
+356:     lines.extend([
+357:         &quot;&quot;,
+358:         &quot;Use the page content and your reasoning to complete the goal.&quot;,
+359:         &quot;The exact selectors may have changed - adapt as needed.&quot;,
+360:         &quot;If you encounter login screens, fill in the appropriate credentials.&quot;,
+361:     ])
+362:     return &quot;\n&quot;.join(lines)</file><file path="skills_player/tools.py">  1: &quot;&quot;&quot;Interactive tools for agent-user communication.&quot;&quot;&quot;
+  2: from typing import TYPE_CHECKING
+  3: from .preferences import load_preferences, normalize_prompt_key, save_preferences
+  4: if TYPE_CHECKING:
+  5:     from browser_use import ActionResult, Tools
+  6: def create_interactive_tools(include_finance: bool = True) -&gt; &quot;Tools&quot;:
+  7:     &quot;&quot;&quot;
+  8:     Create tools that allow the agent to ask the user for input.
+  9:     This is useful for MFA codes, CAPTCHAs, security questions, etc.
+ 10:     Args:
+ 11:         include_finance: If True, include finance/banking tools.
+ 12:     Returns:
+ 13:         Tools instance with interactive actions registered.
+ 14:     &quot;&quot;&quot;
+ 15:     # Import here to avoid circular imports and allow type checking
+ 16:     from browser_use import ActionResult, Tools
+ 17:     tools = Tools()
+ 18:     @tools.action(
+ 19:         description=&quot;&quot;&quot;Ask the user for input or guidance when you encounter
+ 20:         a verification page, MFA prompt, security question, CAPTCHA, or any
+ 21:         situation requiring human decision/input.
+ 22:         Use this when you see:
+ 23:         - Pages asking HOW to send a verification code
+ 24:         - One-time password (OTP) / verification code entry fields
+ 25:         - SMS/Email verification code prompts
+ 26:         - Security questions
+ 27:         - CAPTCHA challenges
+ 28:         - &quot;Verify your identity&quot; pages
+ 29:         - Multiple choice options you&apos;re unsure about
+ 30:         - Any form asking for information you don&apos;t have
+ 31:         IMPORTANT: Describe EXACTLY what you see on the page, including all
+ 32:         buttons and options. Don&apos;t assume what the user wants.&quot;&quot;&quot;
+ 33:     )
+ 34:     def ask_user_for_input(
+ 35:         what_i_see: str,
+ 36:         what_i_need: str,
+ 37:     ) -&gt; ActionResult:
+ 38:         &quot;&quot;&quot;
+ 39:         Ask the user for input or a decision interactively.
+ 40:         Args:
+ 41:             what_i_see: Describe what&apos;s on the page (buttons, fields, options)
+ 42:             what_i_need: What input or decision you need from the user
+ 43:         Returns:
+ 44:             ActionResult with the user&apos;s response or error.
+ 45:         &quot;&quot;&quot;
+ 46:         # Check if we have a saved preference for this type of prompt
+ 47:         pref_key, is_saveable = normalize_prompt_key(what_i_see, what_i_need)
+ 48:         if is_saveable and pref_key:
+ 49:             preferences = load_preferences()
+ 50:             if pref_key in preferences:
+ 51:                 saved_response = preferences[pref_key]
+ 52:                 print(&quot;\n&quot; + &quot;=&quot; * 60)
+ 53:                 print(&quot;🔄 USING SAVED PREFERENCE&quot;)
+ 54:                 print(&quot;=&quot; * 60)
+ 55:                 print(f&quot;\n📄 What I see on the page:\n   {what_i_see[:200]}...&quot;)
+ 56:                 print(f&quot;\n✅ Auto-applying saved preference: {saved_response}&quot;)
+ 57:                 print(&quot;   (Delete skills/.preferences.json to reset)&quot;)
+ 58:                 print()
+ 59:                 return ActionResult(
+ 60:                     extracted_content=f&quot;User preference (saved): {saved_response}&quot;,
+ 61:                     include_in_memory=True
+ 62:                 )
+ 63:         print(&quot;\n&quot; + &quot;=&quot; * 60)
+ 64:         print(&quot;🔐 USER INPUT REQUIRED&quot;)
+ 65:         print(&quot;=&quot; * 60)
+ 66:         print(f&quot;\n📄 What I see on the page:\n   {what_i_see}&quot;)
+ 67:         print(f&quot;\n❓ {what_i_need}&quot;)
+ 68:         print()
+ 69:         try:
+ 70:             user_input = input(&quot;👤 Your response: &quot;).strip()
+ 71:             if user_input:
+ 72:                 # Mask the display but return actual value
+ 73:                 display_len = min(len(user_input), 20)
+ 74:                 if len(user_input) &gt; 3:
+ 75:                     masked = user_input[:3] + &apos;*&apos; * (display_len - 3)
+ 76:                 else:
+ 77:                     masked = user_input
+ 78:                 print(f&quot;✅ Received: {masked}&quot;)
+ 79:                 # Save preference if this is a saveable choice
+ 80:                 if is_saveable and pref_key:
+ 81:                     preferences = load_preferences()
+ 82:                     preferences[pref_key] = user_input
+ 83:                     save_preferences(preferences)
+ 84:                     print(f&quot;💾 Saved preference for future use (key: {pref_key})&quot;)
+ 85:                 return ActionResult(
+ 86:                     extracted_content=f&quot;User responded: {user_input}&quot;,
+ 87:                     include_in_memory=True
+ 88:                 )
+ 89:             return ActionResult(
+ 90:                 error=&quot;User provided empty input&quot;,
+ 91:                 include_in_memory=True
+ 92:             )
+ 93:         except EOFError:
+ 94:             return ActionResult(
+ 95:                 error=&quot;No input available (non-interactive mode)&quot;,
+ 96:                 include_in_memory=True
+ 97:             )
+ 98:         except KeyboardInterrupt:
+ 99:             return ActionResult(
+100:                 error=&quot;User cancelled input&quot;,
+101:                 include_in_memory=True
+102:             )
+103:     @tools.action(
+104:         description=&quot;&quot;&quot;Notify the user about something important and wait for
+105:         acknowledgment. Use when the user needs to complete an action manually,
+106:         when waiting for an external process, or when a verification code was
+107:         just sent and you&apos;re waiting for the user to receive it.&quot;&quot;&quot;
+108:     )
+109:     def notify_and_wait(
+110:         message: str,
+111:         wait_prompt: str = &quot;Press Enter when ready to continue...&quot;,
+112:     ) -&gt; ActionResult:
+113:         &quot;&quot;&quot;
+114:         Show a message and wait for user acknowledgment.
+115:         Args:
+116:             message: The message to display to the user.
+117:             wait_prompt: What to show while waiting.
+118:         Returns:
+119:             ActionResult indicating user acknowledged or error.
+120:         &quot;&quot;&quot;
+121:         print(&quot;\n&quot; + &quot;=&quot; * 60)
+122:         print(&quot;📢 NOTIFICATION&quot;)
+123:         print(&quot;=&quot; * 60)
+124:         print(f&quot;\n{message}&quot;)
+125:         print()
+126:         try:
+127:             input(f&quot;⏳ {wait_prompt}&quot;)
+128:             return ActionResult(
+129:                 extracted_content=&quot;User acknowledged and is ready to continue&quot;,
+130:                 include_in_memory=True
+131:             )
+132:         except (EOFError, KeyboardInterrupt):
+133:             return ActionResult(
+134:                 error=&quot;User did not acknowledge&quot;,
+135:                 include_in_memory=True
+136:             )
+137:     # Register optional tool sets
+138:     if include_finance:
+139:         from .custom_tools import register_finance_tools
+140:         register_finance_tools(tools)
+141:     return tools</file><file path=".gitignore"> 1: # Cache files
+ 2: .DS_Store
+ 3: __pycache__/
+ 4: *.py[cod]
+ 5: *$py.class
+ 6: .mypy_cache/
+ 7: .ruff_cache/
+ 8: .pytest_cache/
+ 9: .ipynb_checkpoints
+10: ~/
+11: 
+12: # Virtual Environments
+13: .venv*
+14: venv/
+15: 
+16: # IDEs
+17: .vscode/
+18: .idea/
+19: 
+20: # Build files
+21: dist/
+22: 
+23: # Data files
+24: *.gif
+25: *.txt
+26: *.pdf
+27: *.csv
+28: *.json
+29: *.jsonl
+30: *.log
+31: *.bak
+32: 
+33: # Secrets and sensitive files
+34: secrets.env
+35: .env
+36: browser_cookies.json
+37: cookies.json
+38: gcp-login.json
+39: saved_trajectories/
+40: old_tests/
+41: AgentHistory.json
+42: AgentHistoryList.json
+43: private_example.py
+44: private_example
+45: CLAUDE.local.md
+46: 
+47: uv.lock
+48: temp
+49: tmp
+50: 
+51: # Google API credentials
+52: credentials.json
+53: token.json
+54: 
+55: !docs/docs.json
+56: 
+57: 
+58: temp-profile-*
+59: 
+60: screenshot.png
+61: 
+62: # *.md
+63: 
+64: all_github_issues_progress.md
+65: all_github_issues.md
+66: 
+67: todo-input-token.md
+68: 
+69: TOOL_CHANGES_SUMMARY.md
+70: 
+71: docs/
+72: claude-code-todo
+73: result_judge.md
+74: result.md
+75: result2.md
+76: result3.md
+77: Brainstorm.md
+78: example.ipynb
+79: *SUMMARY.md
+80: todo.md
+81: product_extraction.ipynb
+82: product_extraction.py
+83: *report.md
+84: plot.py</file><file path="CLAUDE.md">  1: # CLAUDE.md
+  2: 
+  3: This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+  4: 
+  5: This is a development workspace for building browser automation agents using the browser-use library. The `/source/` directory contains the browser-use library codebase, and the `/agents/` directory contains custom agent implementations.
+  6: 
+  7: ## Repository Structure
+  8: 
+  9: - **`/source/`** - Full browser-use library source code (from https://github.com/browser-use/browser-use)
+ 10:   - See `/source/CLAUDE.md` for library development guidance
+ 11:   - Contains all core browser automation components
+ 12: - **`/agents/`** - Custom agent scripts and implementations
+ 13:   - User-created agents that leverage the browser-use library
+ 14:   - Example agents demonstrating various use cases
+ 15: - **`.env`** - Environment configuration (API keys, etc.)
+ 16: 
+ 17: ## Development Commands
+ 18: 
+ 19: **Setup environment:**
+ 20: ```bash
+ 21: uv venv --python 3.11
+ 22: source .venv/bin/activate
+ 23: uv sync
+ 24: ```
+ 25: 
+ 26: **Install browser-use in editable mode from source:**
+ 27: ```bash
+ 28: uv pip install -e ./source
+ 29: ```
+ 30: 
+ 31: **Run agent scripts:**
+ 32: ```bash
+ 33: # Run a specific agent
+ 34: uv run agents/browser.py
+ 35: 
+ 36: # Run with command-line task
+ 37: uv run agents/browser.py &quot;your task here&quot;
+ 38: ```
+ 39: 
+ 40: **Work with the browser-use library:**
+ 41: ```bash
+ 42: # Run library tests
+ 43: cd source &amp;&amp; uv run pytest -vxs tests/ci
+ 44: 
+ 45: # Type checking
+ 46: cd source &amp;&amp; uv run pyright
+ 47: 
+ 48: # Linting/formatting
+ 49: cd source &amp;&amp; uv run ruff check --fix &amp;&amp; uv run ruff format
+ 50: ```
+ 51: 
+ 52: ## Building Agents
+ 53: 
+ 54: When creating new agents in `/agents/`, follow these patterns:
+ 55: 
+ 56: **Basic agent structure:**
+ 57: ```python
+ 58: import asyncio
+ 59: import os
+ 60: from dotenv import load_dotenv
+ 61: from browser_use import Agent, Browser
+ 62: from browser_use.llm.openrouter.chat import ChatOpenRouter
+ 63: 
+ 64: load_dotenv()
+ 65: 
+ 66: async def main():
+ 67:     # Initialize LLM
+ 68:     llm = ChatOpenRouter(
+ 69:         model=&apos;google/gemini-2.5-flash&apos;,
+ 70:         api_key=os.getenv(&apos;OPENROUTER_API_KEY&apos;),
+ 71:     )
+ 72: 
+ 73:     # Initialize Browser
+ 74:     browser = Browser(headless=False)
+ 75: 
+ 76:     # Create and run agent
+ 77:     agent = Agent(
+ 78:         task=&quot;Your task here&quot;,
+ 79:         llm=llm,
+ 80:         browser=browser,
+ 81:     )
+ 82: 
+ 83:     history = await agent.run()
+ 84: 
+ 85:     # Process results
+ 86:     print(f&quot;Success: {history.is_successful()}&quot;)
+ 87:     print(f&quot;Result: {history.final_result()}&quot;)
+ 88: 
+ 89: if __name__ == &apos;__main__&apos;:
+ 90:     asyncio.run(main())
+ 91: ```
+ 92: 
+ 93: **Key agent development patterns:**
+ 94: 
+ 95: - Use `Browser(headless=False)` during development to see the browser in action
+ 96: - Switch to `headless=True` for production/automated runs
+ 97: - Always load API keys from `.env` file using `python-dotenv`
+ 98: - Use `history` object to access results: `.final_result()`, `.urls()`, `.errors()`, `.screenshots()`
+ 99: - For production, consider `Browser(use_cloud=True)` for better performance and stealth
+100: 
+101: ## LLM Provider Configuration
+102: 
+103: **OpenRouter (recommended for development):**
+104: ```python
+105: from browser_use.llm.openrouter.chat import ChatOpenRouter
+106: 
+107: llm = ChatOpenRouter(
+108:     model=&apos;google/gemini-2.5-flash&apos;,
+109:     api_key=os.getenv(&apos;OPENROUTER_API_KEY&apos;),
+110: )
+111: ```
+112: 
+113: **Browser Use optimized model (recommended for production):**
+114: ```python
+115: from browser_use import ChatBrowserUse
+116: 
+117: llm = ChatBrowserUse()  # Requires BROWSER_USE_API_KEY in .env
+118: ```
+119: 
+120: **Other providers:**
+121: - OpenAI: `from browser_use.llm.openai.chat import ChatOpenAI`
+122: - Anthropic: `from browser_use.llm.anthropic.chat import ChatAnthropic`
+123: - Google: `from browser_use.llm.google.chat import ChatGoogle`
+124: 
+125: ## Environment Variables
+126: 
+127: Required in `.env` file:
+128: ```bash
+129: # Choose one LLM provider
+130: OPENROUTER_API_KEY=your-key-here
+131: # OR
+132: BROWSER_USE_API_KEY=your-key-here  # For ChatBrowserUse
+133: # OR
+134: OPENAI_API_KEY=your-key-here
+135: # OR
+136: ANTHROPIC_API_KEY=your-key-here
+137: ```
+138: 
+139: ## Agent Development Tips
+140: 
+141: **Interactive mode:**
+142: Create agents with CLI input for rapid testing (see `agents/browser.py` for example)
+143: 
+144: **Error handling:**
+145: ```python
+146: history = await agent.run()
+147: 
+148: if not history.is_successful():
+149:     print(&quot;Task failed!&quot;)
+150:     for error in history.errors():
+151:         print(f&quot;Error: {error}&quot;)
+152: ```
+153: 
+154: **Custom tools:**
+155: ```python
+156: from browser_use import Tools
+157: 
+158: tools = Tools()
+159: 
+160: @tools.action(&apos;Description of what this tool does&apos;)
+161: def custom_tool(param: str) -&gt; str:
+162:     return f&quot;Result: {param}&quot;
+163: 
+164: agent = Agent(task=&quot;...&quot;, llm=llm, browser=browser, tools=tools)
+165: ```
+166: 
+167: **Browser configuration:**
+168: ```python
+169: browser = Browser(
+170:     headless=False,                    # Visible browser
+171:     window_size={&apos;width&apos;: 1920, &apos;height&apos;: 1080},
+172:     use_cloud=False,                   # Use local browser
+173: )
+174: ```
+175: 
+176: ## Common Workflows
+177: 
+178: **1. Create a new agent:**
+179: - Copy an existing agent from `/agents/` as a template
+180: - Modify the task and any custom logic
+181: - Test with `uv run agents/your_agent.py`
+182: 
+183: **2. Test different LLM providers:**
+184: - Update the LLM initialization in your agent
+185: - Add required API key to `.env`
+186: - Compare performance and cost
+187: 
+188: **3. Production deployment:**
+189: - Switch to `Browser(use_cloud=True)` for stealth and scale
+190: - Use `ChatBrowserUse()` for optimized performance
+191: - Consider the `@sandbox()` decorator for managed infrastructure
+192: 
+193: **4. Debug agent behavior:**
+194: - Run with `headless=False` to watch the browser
+195: - Check `history.errors()` for failures
+196: - Review `history.urls()` to see navigation flow
+197: - Use screenshots: `history.screenshots()`
+198: 
+199: ## Code Style
+200: 
+201: - Use async/await throughout (browser-use is fully async)
+202: - Load environment variables with `python-dotenv`
+203: - Use type hints for function parameters
+204: - Keep agent logic modular and reusable
+205: - Comment complex task logic
+206: 
+207: ## Library Development
+208: 
+209: If you need to modify the browser-use library itself:
+210: 1. Navigate to `/source/`
+211: 2. Read `/source/CLAUDE.md` for development guidelines
+212: 3. Make changes following the library&apos;s architecture
+213: 4. Run tests from `/source/`: `uv run pytest -vxs tests/ci`
+214: 5. Agent scripts will automatically use the local source via editable install</file><file path="main.py"> 1: #!/usr/bin/env python3
+ 2: &quot;&quot;&quot;
+ 3: Skills Player - CLI entry point.
+ 4: This is a convenience wrapper for running the skills_player module.
+ 5: For the full implementation, see the skills_player/ package.
+ 6: Usage:
+ 7:     python agents/chrome_recorder.py list
+ 8:     python agents/chrome_recorder.py play skills/bills/grayson-bill.json
+ 9:     python agents/chrome_recorder.py play skills/bills/grayson-bill.json --extract
+10: &quot;&quot;&quot;
+11: from skills_player.cli import main
+12: if __name__ == &quot;__main__&quot;:
+13:     main()</file></files></repomix>
