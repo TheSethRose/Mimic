@@ -1,5 +1,6 @@
-# Cache files
-.DS_Store
+# =====================
+# Python
+# =====================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -7,37 +8,82 @@ __pycache__/
 .ruff_cache/
 .pytest_cache/
 .ipynb_checkpoints
+*.egg-info/
 
+# =====================
 # Virtual Environments
+# =====================
 .venv/
 venv/
+env/
 
-# IDEs
-.vscode/
-.idea/
-
-# Build files
+# =====================
+# Build/Distribution
+# =====================
 dist/
 build/
 
-# Secrets and sensitive files
+# =====================
+# IDE/Editor
+# =====================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# =====================
+# OS Files
+# =====================
+.DS_Store
+Thumbs.db
+
+# =====================
+# Secrets & Config
+# =====================
 .env
 secrets.env
 *.local.md
 
-# Temporary files
+# =====================
+# Temporary Files
+# =====================
 temp/
 tmp/
 *.tmp
 *.bak
 *.log
 
-# OS files
-Thumbs.db
+# =====================
+# Lock Files
+# =====================
+*.lock
 
-# Skills - Private recordings (contain personal credentials)
-skills/private/*
-!skills/private/.gitkeep
+# =====================
+# Node.js
+# =====================
+node_modules/
 
-# Development artifacts
+# =====================
+# Project Specific
+# =====================
 repomix-output.xml
+storage/workflows/
+browser_cookies.json
+cookies.json
+AgentHistory.json
+AgentHistoryList.json
+*.gif
+*.pdf
+user_data_dir/
+data/
+.config.pkl
+.gradio/
+
+# =====================
+# AI Assistant
+# =====================
+.claude/
+CLAUDE.md
+# Private workflows (contain credentials)
+workflows/storage/

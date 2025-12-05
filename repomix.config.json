@@ -15,8 +15,9 @@
     "**/*.yaml",
     "**/*.yml",
     "**/*.toml",
-    "**/*.cfg",
-    "**/*.ini"
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.css"
   ],
   "ignore": {
     "useGitignore": true,
@@ -39,7 +40,9 @@
       "node_modules/**",
       ".env",
       ".env.*",
-      "*.log"
+      "*.log",
+      ".claude/**",
+      "CLAUDE.md"
     ]
   }
 }
